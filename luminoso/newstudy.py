@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 from csc import divisi2
-from nltk.collocations import BigramAssocMeasures, BigramCollocationFinder
 from csc.divisi2.ordered_set import RecyclingSet
+from csc.nl import get_nl
+
+EXTRA_STOPWORDS = ['also', 'not', 'without', 'ever', 'because', 'then', 'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other']
+
+# BigramAssocMeasures.likelihood_ratio
 
 class LuminosoSpace(object):
     def __init__(self, rmat, queue=10000):
@@ -25,8 +29,9 @@ class LuminosoSpace(object):
           used terms, or an integer specifying how large the initially empty
           RecyclingSet should be.
         """
-        self.texts = {}
         self.rmat = rmat
+        if isinstance(queue, int):
+            self.queue = RecyclingSet()
 
     @staticmethod
     def make_english():
