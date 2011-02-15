@@ -10,6 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.schema import Index
+from sqlalchemy.sql.expression import desc
 from sqlalchemy import create_engine, Column, Integer, Float, String, Text
 
 def _expected_values(cont):
@@ -56,15 +57,16 @@ class Term(Base):
     """
     __tablename__ = 'terms'
     term = Column(String, primary_key=True)
-    count = Column(Integer, nullable=False)
+    count = Column(Float, nullable=False)
     words = Column(Integer, nullable=False)
-    relevance = Column(Float, nullable=False)
+    relevance = Column(Float, nullable=False, index=True)
     distinct_docs = Column(Integer, nullable=False)
 
     def __init__(self, term, count, distinct_docs, relevance):
         self.term = term
         self.count = count
         self.distinct_docs = distinct_docs
+        self.words = len(term.split())
         self.relevance = relevance
     
     def __repr__(self):
@@ -180,7 +182,7 @@ class TermDatabase(object):
         self._update_term_relevance(term)
         self.commit()
 
-    def add_document(self, document, terms, text, reader_name):
+    def add_document(self, docname, terms, text, reader_name):
         """
         Record the terms in a document in the database. If the database already
         has a document with this name, that document will be replaced.
@@ -188,12 +190,12 @@ class TermDatabase(object):
         The terms must already be extracted by some other process.
         `reader_name` indicates which reader was used.
         """
-        doc = self.sql_session.query(Document).get(document)
+        doc = self.sql_session.query(Document).get(docname)
         if doc is not None:
             if doc.text == text and doc.reader == reader_name:
                 # nothing has changed, so return
                 return
-            self.clear_document(document)
+            self._clear_document(docname)
         
         for term in terms:
             if isinstance(term, tuple):
@@ -201,10 +203,12 @@ class TermDatabase(object):
                 term, value = term
             else:
                 value = 1
-            self.increment_term_in_document(term, document, value)
-            
+            self.increment_term_in_document(term, docname, value)
+        doc = Document(docname, text, reader_name)
+        self.sql_session.add(doc)
+        self.commit()
 
-    def clear_document(self, document):
+    def _clear_document(self, document):
         query = self.sql_session.query(TermInDocument)\
                     .filter(TermInDocument.document == document)
         doc = self.sql_session.query(Document).get(document)
@@ -215,6 +219,9 @@ class TermDatabase(object):
             term_entry.distinct_docs -= 1
             row.delete()
         doc.delete()
+    
+    def clear_document(self, document):
+        self._clear_document(document)
         self.commit()
     
     def count_term(self, term):
@@ -239,6 +246,9 @@ class TermDatabase(object):
             raise NotImplementedError(
                 "I don't know how to handle trigrams or larger"
             )
+    
+    def top_terms(self, n):
+        return self.sql_session.query(Term).order_by(desc(Term.relevance))[:n]
     
     def _update_term_relevance(self, term):
         term_entry = self.sql_session.query(Term).get(term)

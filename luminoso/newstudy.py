@@ -1,16 +1,21 @@
 #!/usr/bin/env python
 from csc import divisi2
 from csc.divisi2.ordered_set import RecyclingSet
-from csc.nl import get_nl
 from luminoso.term_database import TermDatabase
+from luminoso.text_readers import get_reader
 import os
 
-EXTRA_STOPWORDS = ['also', 'not', 'without', 'ever', 'because', 'then', 'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other']
+
+EXTRA_STOPWORDS = [
+    'also', 'not', 'without', 'ever', 'because', 'then', 
+    'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other'
+]
 
 """
-TODO:
-- figure out how to load the TermDatabase (which kind of has to be a file)
-- 
+Overall design:
+- Luminoso as a whole defines some canonicals that can be easily included
+- A LuminosoSpace contains many LuminosoStudies, plus canonicals
+- A LuminosoStudy contains many Documents (many of which also go into the space)
 """
 
 class LuminosoSpace(object):
@@ -34,7 +39,25 @@ class LuminosoSpace(object):
                           "Use LuminosoSpace.make() to make a new one.")
         self.dir = dir
         self.rmat = None
-        self.termdb = TermDatabase(dir+os.sep+'terms.db')
+        self.database = TermDatabase(dir+os.sep+'terms.db')
+    
+    def train_document(self, docname, text, reader_name, learn=True):
+        reader = get_reader(reader_name)
+        sentences = reader.tokenize(text)
+        terms = []
+        for sent in sentences:
+            terms.extend(sent)
+            terms.extend([sent[i]+' '+sent[i+1] for i in xrange(len(sent)-1)])
+        self.database.add_document(docname, terms, text, reader_name)
+        if learn:
+            self.learn_assoc(sentences)
+
+    def learn_assoc(sentences):
+        distant = []
+        recent = []
+        raise NotImplementedError
+        #for sent in sentences:
+            
 
     @staticmethod
     def make_english():
