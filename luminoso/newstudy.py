@@ -2,13 +2,19 @@
 from csc import divisi2
 from csc.divisi2.ordered_set import RecyclingSet
 from csc.nl import get_nl
+from luminoso.term_database import TermDatabase
+import os
 
 EXTRA_STOPWORDS = ['also', 'not', 'without', 'ever', 'because', 'then', 'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other']
 
-# BigramAssocMeasures.likelihood_ratio
+"""
+TODO:
+- figure out how to load the TermDatabase (which kind of has to be a file)
+- 
+"""
 
 class LuminosoSpace(object):
-    def __init__(self, rmat, queue=10000):
+    def __init__(self, dir):
         """
         A LuminosoSpace is a meta-study. You supply it with as many documents
         as possible from the space of documents you intend to analyze, or
@@ -19,19 +25,16 @@ class LuminosoSpace(object):
         updated incrementally to take new data into account, which is how
         Luminoso learns new domain-specific knowledge.
 
-        A LuminosoSpace is constructed from the following parameters:
-
-        - `rmat`: the ReconstructedMatrix to start learning from.
-          (This could be the state of a previously-created LuminosoSpace, or
-          it could be made from scratch out of common sense, as it is in
-          :func:`LuminosoSpace.make_english`.)
-        - `queue`: either a RecyclingSet that maintains a queue of recently-
-          used terms, or an integer specifying how large the initially empty
-          RecyclingSet should be.
+        A LuminosoSpace is constructed from `dir`, a path to a directory.
+        This directory will contain saved versions of various matrices, as
+        well as a SQLite database of terms and documents.
         """
-        self.rmat = rmat
-        if isinstance(queue, int):
-            self.queue = RecyclingSet()
+        if not os.access(dir, os.R_OK):
+            raise IOError("Cannot read the study directory %s. "
+                          "Use LuminosoSpace.make() to make a new one.")
+        self.dir = dir
+        self.rmat = None
+        self.termdb = TermDatabase(dir+os.sep+'terms.db')
 
     @staticmethod
     def make_english():
