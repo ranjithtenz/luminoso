@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-from csc import divisi2
-from csc.divisi2.ordered_set import RecyclingSet
+import divisi2
+from divisi2.ordered_set import PrioritySet
 from luminoso.term_database import TermDatabase
 from luminoso.text_readers import get_reader
 import os
-
+from config import Config
 
 EXTRA_STOPWORDS = [
     'also', 'not', 'without', 'ever', 'because', 'then', 
@@ -19,17 +19,22 @@ Overall design:
 """
 
 class LuminosoSpace(object):
+    """
+    A LuminosoSpace is a meta-study. You supply it with as many documents
+    as possible from the space of documents you intend to analyze, or
+    possibly other forms of domain-specific knowledge.
+
+    The LuminosoSpace represents the semantic similarities between things
+    as a Divisi2 reconstructed association matrix. This matrix can be
+    updated incrementally to take new data into account, which is how
+    Luminoso learns new domain-specific knowledge.
+    """
+    CONFIG_FILENAME = 'luminoso.cfg'
+    ASSOC_FILENAME = 'associations.rmat'
+    DB_FILENAME = 'terms.sqlite'
+
     def __init__(self, dir):
         """
-        A LuminosoSpace is a meta-study. You supply it with as many documents
-        as possible from the space of documents you intend to analyze, or
-        possibly other forms of domain-specific knowledge.
-
-        The LuminosoSpace represents the semantic similarities between things
-        as a Divisi2 reconstructed association matrix. This matrix can be
-        updated incrementally to take new data into account, which is how
-        Luminoso learns new domain-specific knowledge.
-
         A LuminosoSpace is constructed from `dir`, a path to a directory.
         This directory will contain saved versions of various matrices, as
         well as a SQLite database of terms and documents.
@@ -38,26 +43,77 @@ class LuminosoSpace(object):
             raise IOError("Cannot read the study directory %s. "
                           "Use LuminosoSpace.make() to make a new one.")
         self.dir = dir
-        self.rmat = None
-        self.database = TermDatabase(dir+os.sep+'terms.db')
+        self._load_config()
+        self._load_assoc()
+        self.database = TermDatabase(
+          self.filename_in_dir(LuminosoSpace.DB_FILENAME)
+        )
     
+    def filename_in_dir(self, filename):
+        """
+        Given a filename relative to this LuminosoSpace's directory, get its
+        complete path.
+        """
+        return self.dir + os.sep + filename
+    
+    def file_exists_in_dir(self, filename):
+        """
+        Determine whether a file exists in this LuminosoSpace's directory.
+        """
+        return os.access(self.filename_in_dir(filename))
+
+    def _load_config(self):
+        "Load the configuration file."
+        if self.file_exists_in_dir(LuminosoSpace.CONFIG_FILENAME):
+            self.config = Config(
+              open(self.filename_in_dir(LuminosoSpace.CONFIG_FILENAME))
+            )
+        else:
+            self.config = self._default_config()
+            self.save_config()
+
+    def save_config(self):
+        "Save the current configuration to the configuration file."
+        out = open(self.filename_in_dir(LuminosoSpace.CONFIG_FILENAME), 'w')
+        self.config.save(out)
+        out.close()
+
+    def _default_config(self):
+        "The default configuration for new studies."
+        config = Config()
+        config['num_concepts'] = 50000
+        config['num_axes'] = 50
+        return config
+
+    def _load_assoc(self):
+        "Load the association matrix from a file."
+        if self.file_exists_in_dir('associations.rmat'):
+            self.assoc = divisi2.load('associations.rmat')
+        else:
+            raise IOError("This LuminosoSpace does not have an "
+                          "'associations.rmat' file. Use LuminosoSpace.make() "
+                          "to make a valid LuminosoSpace.")
+    
+    def save_assoc(self):
+        "Save the association matrix to a file."
+        divisi2.save(self.assoc, self.filename_in_dir('associations.rmat'))
+
     def train_document(self, docname, text, reader_name, learn=True):
         reader = get_reader(reader_name)
-        sentences = reader.tokenize(text)
+        sentences = reader.extract_terms_by_sentence(text)
         terms = []
         for sent in sentences:
             terms.extend(sent)
-            terms.extend([sent[i]+' '+sent[i+1] for i in xrange(len(sent)-1)])
+            ## This should actually be handled by the reader.
+            # terms.extend([sent[i]+' '+sent[i+1] for i in xrange(len(sent)-1)])
         self.database.add_document(docname, terms, text, reader_name)
         if learn:
             self.learn_assoc(sentences)
 
     def learn_assoc(sentences):
-        distant = []
-        recent = []
-        raise NotImplementedError
-        #for sent in sentences:
-            
+        #distant = []
+        #recent = []
+        raise NotImplementedError            
 
     @staticmethod
     def make_english():
