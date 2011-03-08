@@ -10,10 +10,6 @@ if __name__ == '__main__':
     sys.path.extend([os.path.join(os.path.dirname(sys.argv[0]), "lib"),
                      os.path.dirname(sys.argv[0])])
 
-try:
-    from PyQt4 import QtCore
-except ImportError:
-    from luminoso import fake_qt as QtCore
 import os, codecs, time
 import cPickle as pickle
 import numpy as np
@@ -135,18 +131,18 @@ DEFAULT_SETTINGS = {
     'concept_cutoff': 2
 }
 
-class Study(QtCore.QObject):
+class Study(object):
     '''
     A Study is a collection of documents and other matrices that can be analyzed.
     '''
-    def __init__(self, name, documents, canonical, other_matrices, settings):
+    def __init__(self, name, documents, canonical, other_matrices, settings, status_callback=None):
         """
         documents: list of Document objects
         canonical: list of Document objects that are the canonical documents (possibly empty)
         other_matrices: things to blend.
         settings: a dict of settings. See DEFAULT_SETTINGS above.
+        status_callback: called with a status message to report progress. (Can be None.)
         """
-        QtCore.QObject.__init__(self)
         self.name = name
         self.study_documents = documents
         self.canonical_documents = canonical
@@ -154,16 +150,16 @@ class Study(QtCore.QObject):
         self._documents_matrix = None
         self.other_matrices = other_matrices
         self.settings = settings
+        self.status_callback = status_callback
 
     def config(self, key):
         if key in self.settings: return self.settings[key]
         else: return DEFAULT_SETTINGS[key]
         
-    step = QtCore.pyqtSignal(['QString'])
-
     def _step(self, msg):
         logger.info(msg)
-        self.step.emit(msg)
+        if self.status_callback is not None:
+            self.status_callback(msg)
 
     def get_contents_hash(self):
         def sha1(txt):
@@ -459,9 +455,8 @@ class Study(QtCore.QObject):
         results = StudyResults(self, docs, spectral.left, spectral, magnitudes, stats)
         return results
 
-class StudyResults(QtCore.QObject):
+class StudyResults(object):
     def __init__(self, study, docs, projections, spectral, magnitudes, stats):
-        QtCore.QObject.__init__(self)
         self.study = study
         self.docs = docs
         self.spectral = spectral
@@ -595,17 +590,17 @@ class StudyResults(QtCore.QObject):
 
 class StudyLoadError(Exception): pass
 
-class StudyDirectory(QtCore.QObject):
+class StudyDirectory(object):
     '''
     A StudyDirectory manages the directory representing a study. It has three responsibilites:
      - loading the documents, both study and canonical
      - storing settings, such as the number of axes to compute
      - caching analysis results for speed
     '''
-    def __init__(self, dir):
-        QtCore.QObject.__init__(self)
+    def __init__(self, dir, status_callback=None):
         self.dir = dir.rstrip(os.path.sep)
         self.load_settings()
+        self.status_callback = status_callback
 
     @staticmethod
     def make_new(destdir):
@@ -637,6 +632,11 @@ class StudyDirectory(QtCore.QObject):
     def save_settings(self):
         write_json_to_file(self.settings, self.get_settings_file())
 
+    def _step(self, msg):
+        logger.info(msg)
+        if self.status_callback is not None:
+            self.status_callback(msg)
+    
     def study_path(self, path):
         return self.dir + os.path.sep + path
 

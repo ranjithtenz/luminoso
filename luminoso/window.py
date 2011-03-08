@@ -220,14 +220,14 @@ class MainWindow(QtGui.QMainWindow):
             with progress_reporter(self, 'Loading study %s' % dir, 7) as progress:
                 progress.set_text('Loading.')
                 self.study = self.study_dir.get_study()
-                self.study.step.connect(progress.tick)
+                self.study.status_callback = progress.tick
                 progress.set_text('Loading analysis.')
                 results = self.study_dir.get_existing_analysis()
                 progress.tick('Updating view.')
                 self.update_svdview(results)
                 progress.tick('Updating options.')
                 self.update_options()
-                self.study.step.disconnect(progress.tick)
+                self.study.status_callback = None
 
             self.results = results
             self.show_info()
@@ -303,14 +303,14 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.show_info("<h3>Analyzing...</h3><p>(this may take a few minutes)</p>")
         
         with progress_reporter(self, 'Analyzing...', 8) as progress:
-            self.study.step.connect(progress.tick)
+            self.study.status_callback = progress.tick
             results = self.study_dir.analyze()
             logger.info('Analysis finished.')
             progress.tick('Updating view')
             self.update_svdview(results)
             self.results = results
             self.show_info()
-            self.study.step.disconnect(progress.tick)
+            self.study.status_callback = None
 
     def set_study_dir(self, dir):
         self.dir_model.setRootPath(dir)
