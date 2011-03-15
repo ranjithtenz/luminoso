@@ -16,6 +16,8 @@ Overall design:
 - Luminoso as a whole defines some canonicals that can be easily included
 - A LuminosoSpace contains many LuminosoStudies, plus canonicals
 - A LuminosoStudy contains many Documents (many of which also go into the space)
+- Spaces and studies are configured using the `config` module, giving
+  configurations that are both easily human-readable and computer-readable
 """
 
 class LuminosoSpace(object):
