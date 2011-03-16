@@ -1,0 +1,53 @@
+# Plans for Luminoso 2
+
+This is an "orgmode" file. It looks vaguely like Markdown, but is designed to
+have various features for keeping track of things like to-do lists. Orgmode is
+available as a plugin for Emacs, Sublime Text 2 (which I use), and possibly
+for vim.
+
+* Design plans [0/7]
+  - [ ] New "LuminosoSpace" that can be incrementally trained [0/4]
+    - [ ] Figure out {{rough incremental blending}}
+    - [ ] Implement the version of SimonFunk SVD from MADLib
+      [[http://doc.madlib.net/group__grp__svdmf.html]]
+    - [ ] Look into L1-normalization
+    - [ ] Document
+
+  - [ ] A variety of possible data sources [0/4]
+    - [ ] Text files
+    - [ ] SQL
+    - [ ] Mongo
+    - [ ] Document these
+
+  - [ ] A variety of possible "readers" for text [1/4]
+    - [X] simplenlp, English
+    - [ ] simplenlp, Japanese
+    - [ ] Dependency parser
+    - [ ] Document these
+
+  - [ ] Statistics for 'studies', collections of documents in the space [0/4]
+    - [ ] Look into chi-squared correlation
+    - [ ] Centrality
+    - [ ] Interesting concepts (make more interesting)
+    - [ ] Document these
+
+  - [ ] HTML/JS interface (job for a UROP?) [0/4]
+    - [ ] Some interface for choosing data sources (could be messy!)
+    - [ ] Interface for configuration, including choosing a reader
+    - [ ] Some way to hook in visualizations (processing.js?)
+    - [ ] Document
+      - [ ] Tutorial
+      - [ ] Workflow
+
+  - [ ] Clustering and labeling to discover canonicals [0/3]
+    - [ ] Rafael should finish this for Luminoso 1
+    - [ ] Port to Luminoso 2
+    - [ ] Document
+  
+  - [ ] New "fisheye" visualizer (Birago?)
+
+* rough incremental blending
+  - implemented with Divisi2
+  - Start with a common sense associative matrix
+  - Should common sense actually disappear as the amount of information
+    increases?
