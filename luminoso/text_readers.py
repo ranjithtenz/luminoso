@@ -59,7 +59,7 @@ class QuickEnglishTextReader(TextReader):
         self.cutoff = cutoff
 
     def tokenize(self, text):
-        return self.nl.tokenize(text).split()
+        return self.nl.tokenize_and_correct(text).split()
     
     def _attenuate(self, memory):
         for i in reversed(xrange(len(memory))):
@@ -68,9 +68,8 @@ class QuickEnglishTextReader(TextReader):
                 del memory[i]
 
     def extract_connections(self, text):
-        c = self.__class__
+        c = self.__class__             # convenient shorthand
         
-        # convenient shorthand
         tokens = self.tokenize(text)
         
         weight = 1.0
@@ -78,7 +77,7 @@ class QuickEnglishTextReader(TextReader):
         prev_token = None
 
         for token in tokens:
-            if token: # protect against getting empty tokens somehow
+            if token: # protect in case we get an empty token somehow
                 self._attenuate(memory)
                 if token in c.HARD_PUNCT:
                     memory = []

@@ -2,7 +2,7 @@
 import divisi2
 from divisi2.ordered_set import PrioritySet
 from luminoso.term_database import TermDatabase
-from luminoso.text_readers import get_reader
+from luminoso.text_readers import get_reader, DOCUMENT
 import os
 from config import Config
 
@@ -102,6 +102,14 @@ class LuminosoSpace(object):
 
     def train_document(self, docname, text, reader_name, learn=True):
         reader = get_reader(reader_name)
+        doc_terms = []
+        for weight, term1, term2 in reader.extract_connections(text):
+            if term1 == DOCUMENT:
+                doc_terms.append((weight, term2))
+            else:
+                if learn:
+                    self.learn_assoc(weight, term1, term2)
+        # TODO stopped hacking here
         sentences = reader.extract_terms_by_sentence(text)
         terms = []
         for sent in sentences:
@@ -112,10 +120,8 @@ class LuminosoSpace(object):
         if learn:
             self.learn_assoc(sentences)
 
-    def learn_assoc(sentences):
-        #distant = []
-        #recent = []
-        raise NotImplementedError            
+    def learn_assoc(weight, term1, term2):
+        raise NotImplementedError
 
     @staticmethod
     def make_english():
