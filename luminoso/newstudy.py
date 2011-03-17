@@ -105,20 +105,11 @@ class LuminosoSpace(object):
         doc_terms = []
         for weight, term1, term2 in reader.extract_connections(text):
             if term1 == DOCUMENT:
-                doc_terms.append((weight, term2))
+                doc_terms.append((term2, weight))
             else:
                 if learn:
                     self.learn_assoc(weight, term1, term2)
-        # TODO stopped hacking here
-        sentences = reader.extract_terms_by_sentence(text)
-        terms = []
-        for sent in sentences:
-            terms.extend(sent)
-            ## This should actually be handled by the reader.
-            # terms.extend([sent[i]+' '+sent[i+1] for i in xrange(len(sent)-1)])
-        self.database.add_document(docname, terms, text, reader_name)
-        if learn:
-            self.learn_assoc(sentences)
+        self.database.add_document(docname, doc_terms, text, reader_name)
 
     def learn_assoc(weight, term1, term2):
         raise NotImplementedError
