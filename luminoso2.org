@@ -39,19 +39,19 @@ for vim.
       - [ ] Tutorial
       - [ ] Workflow
 
-  - [ ] Clustering and labeling to discover canonicals [0/3]
+  - [ ] Clustering and labeling to discover canonicals [0/4]
     - [ ] Rafael should finish this for Luminoso 1
     - [ ] Port to Luminoso 2
     - [ ] Use SVC (or something?) to determine unknown labels
     - [ ] Document
 
-  - Visualization [0/0]
+  - Visualization [0/2]
     - [ ] New "fisheye" visualizer (Birago?)
     - [ ] different views like MDS
 
 * redesign notes from before
   - Toggle different matrices in the blend
-  - Labels: key=value or key=??? pairs, representing information we may
+  - Labels: key=value or key=? pairs, representing information we may
     or may not know about the document
   - Labels and canonicals are categories projected into the space, not
     used to form the space

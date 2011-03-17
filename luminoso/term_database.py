@@ -24,6 +24,7 @@ def _expected_values(cont):
     return results
 
 _SMALL = 1e-22
+_BIG = 1e9
 def bigram_likelihood_ratio(n_12, n_1, n_2, n):
     """
     This function, borrowed from NLTK, calculates the significance of a bigram
@@ -101,6 +102,22 @@ Index('idx_term_document',
       TermInDocument.__table__.c.term,
       TermInDocument.__table__.c.document,
       unique=True)
+
+## Probably don't need this here. It doesn't fit into the workflow.
+# class Feature(Base):
+#     __tablename__ = 'document_features'
+#     id = Column(Integer, primary_key=True)
+#     document = Column(String, nullable=False, index=True)
+#     key = Column(String, nullable=False, index=True)
+#     value = Column(String, nullable=False)  # JSON encoded
+# 
+#     def __init__(self, document, key, value):
+#         self.document = document
+#         self.key = key
+#         self.value = value
+#     
+#     def __repr__(self):
+#         return "<Feature on %r: %s=%s>" % (self.document, self.key, self.value)
 
 class Document(Base):
     """
@@ -181,7 +198,7 @@ class TermDatabase(object):
         self._increment_term_count(ANY, newdoc_any, absv)
         self._update_term_relevance(term)
         self.commit()
-
+    
     def add_document(self, docname, terms, text, reader_name):
         """
         Record the terms in a document in the database. If the database already
@@ -233,6 +250,8 @@ class TermDatabase(object):
 
     def term_relevance(self, term):
         words = term.split(' ')
+        if term.startswith('#'):
+            return _BIG
         if len(words) == 1:
             return self.count_term(term)
         elif len(words) == 2:

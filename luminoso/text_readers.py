@@ -89,6 +89,14 @@ class QuickEnglishTextReader(TextReader):
                 elif token in c.NEGATIONS:
                     weight *= self.negation_weight
                     prev_token = None
+                elif (token.startswith('#') or token.startswith('+') or
+                      token.startswith('-')):
+                    # it's a tag
+                    # FIXME: do some tag parsing.
+                    if not token.startswith('#'):
+                        token = '#' + token
+                    yield (0, DOCUMENT, token)
+                    prev_token = None
                 else:
                     # this is an ordinary token, not a negation or punctuation
                     active_terms = [token]
@@ -99,12 +107,12 @@ class QuickEnglishTextReader(TextReader):
                         yield (weight, DOCUMENT, term)
                         memory.append([term, weight])
 
-                    for term in active_terms:
-                        for prev, prev_weight in memory:
-                            # Currently, this will associate each term with
-                            # itself, in addition to previous terms.
-                            # Is this the right way to do that?
-                            yield (weight*prev_weight, prev, term)
+                for term in active_terms:
+                    for prev, prev_weight in memory:
+                        # Currently, this will associate each term with
+                        # itself, in addition to previous terms.
+                        # Is this the right way to do that?
+                        yield (weight*prev_weight, prev, term)
 
 ## Other things to include eventually:
 # class JapaneseTextReader(TextReader):
