@@ -44,7 +44,8 @@ class LuminosoSpace(object):
         """
         if not os.access(dir, os.R_OK):
             raise IOError("Cannot read the study directory %s. "
-                          "Use LuminosoSpace.make() to make a new one.")
+                          "Use LuminosoSpace.make() to make a new one."
+                          % dir)
         self.dir = dir
         self._load_config()
         self._load_assoc()
@@ -63,7 +64,7 @@ class LuminosoSpace(object):
         """
         Determine whether a file exists in this LuminosoSpace's directory.
         """
-        return os.access(self.filename_in_dir(filename))
+        return os.access(self.filename_in_dir(filename), os.F_OK)
 
     def _load_config(self):
         "Load the configuration file."
@@ -84,14 +85,16 @@ class LuminosoSpace(object):
     def _default_config(self):
         "The default configuration for new studies."
         config = Config()
+        # FIXME: so far we just assume that these will match the initial rmat
         config['num_concepts'] = 50000
-        config['num_axes'] = 50
+        config['num_axes'] = 100
+        config['reader'] = 'simplenlp.en'
         return config
 
     def _load_assoc(self):
         "Load the association matrix and priority queue from a file."
         if self.file_exists_in_dir('associations.rmat'):
-            self.assoc = divisi2.load('associations.rmat')
+            self.assoc = divisi2.load(self.filename_in_dir('associations.rmat'))
         else:
             raise IOError("This LuminosoSpace does not have an "
                           "'associations.rmat' file. Use LuminosoSpace.make() "
@@ -119,17 +122,20 @@ class LuminosoSpace(object):
         """
         self.assoc.left[index,:] = 0
 
-    def add_document(self, docname, text, reader_name):
+    def add_document(self, docname, text, reader_name=None):
         """
         Take in a document, pass it through the reader, and store its terms
         in the term database.
         """
+        if reader_name is None:
+            reader_name = self.config['reader']
         reader = get_reader(reader_name)
         doc_terms = []
         for weight, term1, term2 in reader.extract_connections(text):
             if term1 == DOCUMENT:
                 doc_terms.append((term2, weight))
                 relevance = self.database.term_relevance(term2)
+                self.priority.add(term2)
                 self.priority.update(term2, relevance)
         self.database.add_document(docname, doc_terms, text, reader_name)
 
@@ -152,12 +158,22 @@ class LuminosoSpace(object):
         col = self.assoc.col_labels.add(term2)
         self.assoc[row, col] = weight          # do a Hebbian step
 
+    def __repr__(self):
+        return "<LuminosoSpace: %r>" % self.dir
+
     @staticmethod
-    def make_english():
+    def make(dir, rmat):
+        os.mkdir(dir)
+        rmat_file = dir + os.sep + 'associations.rmat'
+        divisi2.save(rmat_file, rmat)
+        return LuminosoSpace(dir)
+
+    @staticmethod
+    def make_english(dir):
         """
         Make a LuminosoSpace trained on English common sense.
         """
         assoc = divisi2.network.conceptnet_assoc('en')
         (U, S, _) = assoc.normalize_all().svd(k=100)
         rmat = divisi2.reconstruct_activation(U, S, post_normalize=True)
-        return LuminosoSpace(rmat)
+        return LuminosoSpace.make(dir, rmat)

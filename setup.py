@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-VERSION = "1.3.4"
+VERSION = "2.0a1"
 
 from setuptools import setup, find_packages
 import os.path, sys
@@ -45,10 +45,10 @@ setup(
     description = "A Python GUI for semantic analysis using Divisi",
     classifiers = classifiers,
     ext_modules = [],
-    packages=find_packages()+['icons', 'study_skel'],
-    app=['luminoso/run_luminoso.py'],
-    scripts=['luminoso/run_luminoso.py', 'luminoso/study.py'],
-    windows=[{'script': 'luminoso/run_luminoso.py'}],
+    packages=find_packages()+['icons'],
+    #app=['luminoso/run_luminoso.py'],
+    #scripts=['luminoso/run_luminoso.py', 'luminoso/study.py'],
+    #windows=[{'script': 'luminoso/run_luminoso.py'}],
     install_requires=['csc-utils >= 0.5', 'divisi2', 'ipython >= 0.9.1', 'jinja2', 'chardet'],
     package_data={'csc.nl': ['mblem/*.pickle', 'en/*.txt']},
     include_package_data=True,

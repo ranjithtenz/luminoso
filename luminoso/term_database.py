@@ -132,8 +132,7 @@ class Document(Base):
     - text: a human-readable representation of the document.
     """
     __tablename__ = 'documents'
-    id = Column(String, primary_key=True)
-    name = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False, index=True, primary_key=True)
     reader = Column(String, nullable=False)
     text = Column(Text, nullable=False)
 
@@ -198,7 +197,7 @@ class TermDatabase(object):
         if isinstance(term, tuple) and term[0] == TAG:
             return self.set_tag_on_document(self, term, document)
         newdoc = self._increment_term_document_count(term, document, value)
-        absv = math.abs(value)
+        absv = abs(value)
         self._increment_term_count(term, newdoc, absv)
         newdoc_any = self._increment_term_document_count(ANY, document, absv)
         self._increment_term_count(ANY, newdoc_any, absv)
@@ -241,7 +240,7 @@ class TermDatabase(object):
             else:
                 value = 1
             self.increment_term_in_document(term, docname, value)
-        doc = Document(docname, text, reader_name)
+        doc = Document(docname, reader_name, text)
         self.sql_session.add(doc)
         self.commit()
 

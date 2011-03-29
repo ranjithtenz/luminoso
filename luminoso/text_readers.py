@@ -23,7 +23,7 @@ class TextReader(object):
         """
         raise NotImplementedError
 
-class QuickEnglishTextReader(TextReader):
+class SimpleNLPEnglishReader(TextReader):
     """
     Uses simplenlp for handling English text.
 
@@ -65,7 +65,8 @@ class QuickEnglishTextReader(TextReader):
         self.cutoff = cutoff
 
     def tokenize(self, text):
-        return self.nl.tokenize_and_correct(text).split()
+        spaced = self.nl.lemma_split(text)[0]
+        return spaced.split()
     
     def _attenuate(self, memory):
         for i in reversed(xrange(len(memory))):
@@ -142,6 +143,15 @@ class QuickEnglishTextReader(TextReader):
             value = None
         return (TAG, key, value)
 
+READERS = {
+    'simplenlp.en': SimpleNLPEnglishReader,
+}
+
+def get_reader(name):
+    try:
+        return READERS[name]()
+    except KeyError:
+        raise KeyError("There is no text reader named %r." % name)
 
 ## Other things to include eventually:
 # class JapaneseTextReader(TextReader):
