@@ -1,15 +1,16 @@
 #!/usr/bin/env python
+from __future__ import with_statement   # for Python 2.5 support
 import divisi2
 from divisi2.ordered_set import PrioritySet
-from luminoso.term_database import TermDatabase
+from luminoso.term_database import TermDatabase, _BIG
 from luminoso.text_readers import get_reader, DOCUMENT
 import os
 from config import Config
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
-EXTRA_STOPWORDS = [
-    'also', 'not', 'without', 'ever', 'because', 'then', 
-    'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other'
-]
 
 """
 Overall design:
@@ -88,31 +89,68 @@ class LuminosoSpace(object):
         return config
 
     def _load_assoc(self):
-        "Load the association matrix from a file."
+        "Load the association matrix and priority queue from a file."
         if self.file_exists_in_dir('associations.rmat'):
             self.assoc = divisi2.load('associations.rmat')
         else:
             raise IOError("This LuminosoSpace does not have an "
                           "'associations.rmat' file. Use LuminosoSpace.make() "
                           "to make a valid LuminosoSpace.")
-    
+        if not isinstance(self.assoc.row_labels, PrioritySet):
+            # turn an ordinary ReconstructedMatrix into one that has
+            # PrioritySets for indices
+            priority = PrioritySet(self.config['num_concepts'])
+            items = self.assoc.row_labels
+            item_tuples = zip(items, [_BIG] * len(items))
+            priority.load_items(item_tuples)
+            self.assoc.row_labels = priority
+            self.assoc.col_labels = priority
+
+        self.priority = self.assoc.row_labels
+        self.priority.listen_for_drops(self.on_drop)
+
     def save_assoc(self):
         "Save the association matrix to a file."
         divisi2.save(self.assoc, self.filename_in_dir('associations.rmat'))
+    
+    def on_drop(self, index, key):
+        """
+        Handle when a key falls out of the PrioritySet.
+        """
+        self.assoc.left[index,:] = 0
 
-    def train_document(self, docname, text, reader_name, learn=True):
+    def add_document(self, docname, text, reader_name):
+        """
+        Take in a document, pass it through the reader, and store its terms
+        in the term database.
+        """
         reader = get_reader(reader_name)
         doc_terms = []
         for weight, term1, term2 in reader.extract_connections(text):
             if term1 == DOCUMENT:
                 doc_terms.append((term2, weight))
-            else:
-                if learn:
-                    self.learn_assoc(weight, term1, term2)
+                relevance = self.database.term_relevance(term2)
+                self.priority.update(term2, relevance)
         self.database.add_document(docname, doc_terms, text, reader_name)
 
-    def learn_assoc(weight, term1, term2):
-        raise NotImplementedError
+    def learn_document(self, docname):
+        """
+        Given a previously added document, use it to update the association
+        matrix. This can be repeated to increase accuracy.
+        """
+        doc = self.database.get_document(docname)
+        reader = get_reader(doc.reader)
+        for weight, term1, term2 in reader.extract_connections(doc.text):
+            if term1 != DOCUMENT:
+                self.learn_assoc(weight, term1, term2)
+
+    def learn_assoc(self, weight, term1, term2):
+        """
+        Learn the strength of the association between term1 and term2.
+        """
+        row = self.assoc.row_labels.add(term1)
+        col = self.assoc.col_labels.add(term2)
+        self.assoc[row, col] = weight          # do a Hebbian step
 
     @staticmethod
     def make_english():

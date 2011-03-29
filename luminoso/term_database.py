@@ -4,6 +4,7 @@ number of times various terms appear, and the number of times they appear
 in each document.
 """
 import math
+from luminoso.text_readers import TAG
 
 # all the messy SQLAlchemy imports
 from sqlalchemy.ext.declarative import declarative_base
@@ -103,21 +104,24 @@ Index('idx_term_document',
       TermInDocument.__table__.c.document,
       unique=True)
 
-## Probably don't need this here. It doesn't fit into the workflow.
-# class Feature(Base):
-#     __tablename__ = 'document_features'
-#     id = Column(Integer, primary_key=True)
-#     document = Column(String, nullable=False, index=True)
-#     key = Column(String, nullable=False, index=True)
-#     value = Column(String, nullable=False)  # JSON encoded
-# 
-#     def __init__(self, document, key, value):
-#         self.document = document
-#         self.key = key
-#         self.value = value
-#     
-#     def __repr__(self):
-#         return "<Feature on %r: %s=%s>" % (self.document, self.key, self.value)
+class Feature(Base):
+    """
+    A table row storing some identified feature of a document that is not a
+    term. As such, it should not be subject to TF-IDF.
+    """
+    __tablename__ = 'document_features'
+    id = Column(Integer, primary_key=True)
+    document = Column(String, nullable=False, index=True)
+    key = Column(String, nullable=False, index=True)
+    value = Column(String, nullable=False)  # JSON encoded
+
+    def __init__(self, document, key, value):
+        self.document = document
+        self.key = key
+        self.value = value
+    
+    def __repr__(self):
+        return "<Feature on %r: %s=%s>" % (self.document, self.key, self.value)
 
 class Document(Base):
     """
@@ -191,12 +195,28 @@ class TermDatabase(object):
             return True
     
     def increment_term_in_document(self, term, document, value=1):
+        if isinstance(term, tuple) and term[0] == TAG:
+            return self.set_tag_on_document(self, term, document)
         newdoc = self._increment_term_document_count(term, document, value)
         absv = math.abs(value)
         self._increment_term_count(term, newdoc, absv)
         newdoc_any = self._increment_term_document_count(ANY, document, absv)
         self._increment_term_count(ANY, newdoc_any, absv)
         self._update_term_relevance(term)
+        self.commit()
+
+    def set_tag_on_document(self, tag, document):
+        key = tag[1]
+        value = tag[2]
+        query = self.sql_session.query(Feature)\
+                  .filter(Feature.document == document)\
+                  .filter(Feature.key == key)
+        try:
+            tag_entry = query.one()
+            tag_entry.value = value
+        except NoResultFound:
+            tag_entry = Feature(document, key, value)
+            self.sql_session.add(tag_entry)
         self.commit()
     
     def add_document(self, docname, terms, text, reader_name):
@@ -225,6 +245,9 @@ class TermDatabase(object):
         self.sql_session.add(doc)
         self.commit()
 
+    def get_document(self, docname):
+        return self.sql_session.query(Document).get(docname)
+
     def _clear_document(self, document):
         query = self.sql_session.query(TermInDocument)\
                     .filter(TermInDocument.document == document)
@@ -250,7 +273,8 @@ class TermDatabase(object):
 
     def term_relevance(self, term):
         words = term.split(' ')
-        if term.startswith('#'):
+        if isinstance(term, tuple):
+            # probably a tag
             return _BIG
         if len(words) == 1:
             return self.count_term(term)

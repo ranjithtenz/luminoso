@@ -6,11 +6,10 @@ available as a plugin for Emacs, Sublime Text 2 (which I use), and possibly
 for vim.
 
 * Design plans [0/7]
-  - [ ] New "LuminosoSpace" that can be incrementally trained [0/4]
+  - [ ] New "LuminosoSpace" that can be incrementally trained [1/4]
     - [ ] Figure out {{rough incremental blending}}
-    - [ ] Implement the version of SimonFunk SVD from MADLib
-      [[http://doc.madlib.net/group__grp__svdmf.html]]
-    - [ ] Look into L1-normalization
+    - [X] Look into normalization
+    - [ ] Converter from previous study
     - [ ] Document
 
   - [ ] A variety of possible data sources [0/4]
@@ -61,3 +60,4 @@ for vim.
   - Start with a common sense associative matrix
   - Should common sense actually disappear as the amount of information
     increases?
+  - What are the learning rates?

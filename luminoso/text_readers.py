@@ -6,6 +6,7 @@ from simplenlp import get_nl
 #   different strengths of terms, etc.) Change the API to make this possible.
 
 DOCUMENT = u'*Document*'
+TAG = u'*Tag*'
 
 class TextReader(object):
     """
@@ -51,6 +52,11 @@ class QuickEnglishTextReader(TextReader):
     # words that flips the context from positive to negative
     NEGATIONS = [u'no', u'not', u'never', u'stop', u'lack',
                  u"n't", u'without']
+    
+    EXTRA_STOPWORDS = [
+        'also', 'not', 'without', 'ever', 'because', 'then', 
+        'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other'
+    ]
 
     def __init__(self, distance_weight=0.9, negation_weight=-0.5, cutoff=0.1):
         self.nl = get_nl('en')
@@ -79,6 +85,7 @@ class QuickEnglishTextReader(TextReader):
         for token in tokens:
             if token: # protect in case we get an empty token somehow
                 self._attenuate(memory)
+                active_terms = []
                 if token in c.HARD_PUNCT:
                     memory = []
                     weight = 1.0
@@ -89,20 +96,21 @@ class QuickEnglishTextReader(TextReader):
                 elif token in c.NEGATIONS:
                     weight *= self.negation_weight
                     prev_token = None
-                elif (token.startswith('#') or token.startswith('+') or
-                      token.startswith('-')):
+                elif token in c.EXTRA_STOPWORDS:
+                    continue
+                elif (token.startswith(u'#') or token.startswith(u'+') or
+                      token.startswith(u'-')) and len(token) > 2:
                     # it's a tag
-                    # FIXME: do some tag parsing.
-                    if not token.startswith('#'):
-                        token = '#' + token
-                    yield (0, DOCUMENT, token)
+                    tag = self.parse_tag(token)
+                    yield (0, DOCUMENT, tag)
                     prev_token = None
                 else:
                     # this is an ordinary token, not a negation or punctuation
                     active_terms = [token]
                     if prev_token is not None:
                         bigram = prev_token + u' ' + token
-                        active.append(bigram)
+                        # FIXME: Why is this here?
+                        active_terms.append(bigram)
                     for term in active_terms:
                         yield (weight, DOCUMENT, term)
                         memory.append([term, weight])
@@ -113,6 +121,27 @@ class QuickEnglishTextReader(TextReader):
                         # itself, in addition to previous terms.
                         # Is this the right way to do that?
                         yield (weight*prev_weight, prev, term)
+    
+    def parse_tag(self, token):
+        if token.startswith(u'#'):
+            if u'=' in token:
+                key, value = token.split(u'=', 1)
+            else:
+                key = token[1:]
+                value = None
+        elif token.startswith(u'+'):
+            key = token[1:]
+            value = True
+        elif token.startswith(u'-'):
+            key = token[1:]
+            value = False
+        else:
+            # this shouldn't happen, but if it does, it's not worth throwing
+            # an error.
+            key = token
+            value = None
+        return (TAG, key, value)
+
 
 ## Other things to include eventually:
 # class JapaneseTextReader(TextReader):
