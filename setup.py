@@ -29,9 +29,8 @@ classifiers=[
     'Topic :: Software Development',
     'Topic :: Text Processing :: Linguistic',]
 
-INCLUDES = ["sip", "PyQt4.QtCore", "PyQt4.Qt", "PyQt4.QtGui", "PyQt4",
-            'csc.divisi2', 'spyderlib', 'csc.nl',
-            'standalone_nlp.lang_en', 'jinja2', 'numpy', 'chardet', 'pysparse']
+INCLUDES = ['divisi2', 'simplenlp', 'jinja2', 'sqlalchemy', 'numpy', 'chardet',
+            'pysparse']
 DATA_FILES = ['icons']
 
 setup(
@@ -49,7 +48,7 @@ setup(
     #app=['luminoso/run_luminoso.py'],
     #scripts=['luminoso/run_luminoso.py', 'luminoso/study.py'],
     #windows=[{'script': 'luminoso/run_luminoso.py'}],
-    install_requires=['csc-utils >= 0.5', 'divisi2', 'ipython >= 0.9.1', 'jinja2', 'chardet'],
+    install_requires=['csc-utils >= 0.5', 'divisi2', 'ipython >= 0.9.1', 'jinja2', 'chardet', 'sqlalchemy'],
     package_data={'csc.nl': ['mblem/*.pickle', 'en/*.txt']},
     include_package_data=True,
     #data_files=DATA_FILES,
@@ -64,26 +63,7 @@ setup(
         },
     },
 
-    entry_points={'gui_scripts': ['luminoso = luminoso.run_luminoso:main'],
-                  'console_scripts': ['luminoso-study = luminoso.study:main']},
+    #entry_points={'gui_scripts': ['luminoso = luminoso.run_luminoso:main'],
+    #              'console_scripts': ['luminoso-study = luminoso.study:main']},
 )
-
-'''
-Add the icons directory to the build.
-
-Commented out by Rob; this shouldn't be triggered just by importing the setup
-script.
-'''
-#import shutil
-
-##Create paths. One that points to the icons directory and one that creates
-##the disired place to copy to.
-#
-#srcPath = os.path.abspath('./icons')
-#targPath = os.path.abspath('./dist/icons')
-
-##Make sure the icons directory exists and that it has not been added to the build
-##yet.
-#if os.path.exists(srcPath) and (not os.path.exists(targPath)):
-#    shutil.copytree(srcPath,targPath)
 

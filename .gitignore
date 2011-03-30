@@ -9,6 +9,7 @@ pip-log.txt
 .coverage
 .bzr
 .bzrignore
+.ropeproject
 Divisi2.egg-info/
 doc/_static/jsMath/
 _build
