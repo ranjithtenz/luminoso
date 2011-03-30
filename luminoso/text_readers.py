@@ -12,6 +12,9 @@ class TextReader(object):
     """
     An abstract class showing the interface that TextReaders must implement.
     """
+    def __init__(self):
+        raise NotImplementedError("TextReader is an abstract class")
+
     def extract_connections(self, text):
         """
         Outputs a list of tuples, containing two terms and the strength with
@@ -75,7 +78,7 @@ class SimpleNLPEnglishReader(TextReader):
                 del memory[i]
 
     def extract_connections(self, text):
-        c = self.__class__             # convenient shorthand
+        cls = self.__class__             # convenient shorthand
         
         tokens = self.tokenize(text)
         
@@ -87,17 +90,17 @@ class SimpleNLPEnglishReader(TextReader):
             if token: # protect in case we get an empty token somehow
                 self._attenuate(memory)
                 active_terms = []
-                if token in c.HARD_PUNCT:
+                if token in cls.HARD_PUNCT:
                     memory = []
                     weight = 1.0
                     prev_token = None
-                elif token in c.PUNCT_TOKENS or token[0] in c.PUNCT:
+                elif token in cls.PUNCT_TOKENS or token[0] in cls.PUNCT:
                     weight = 1.0
                     prev_token = None
-                elif token in c.NEGATIONS:
+                elif token in cls.NEGATIONS:
                     weight *= self.negation_weight
                     prev_token = None
-                elif token in c.EXTRA_STOPWORDS:
+                elif token in cls.EXTRA_STOPWORDS:
                     continue
                 elif (token.startswith(u'#') or token.startswith(u'+') or
                       token.startswith(u'-')) and len(token) > 2:
@@ -148,6 +151,10 @@ READERS = {
 }
 
 def get_reader(name):
+    """
+    Gets a TextReader instance by specifying its name. Often, the reader
+    you want will be 'simplenlp.en'.
+    """
     try:
         return READERS[name]()
     except KeyError:

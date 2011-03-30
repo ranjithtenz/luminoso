@@ -1,18 +1,7 @@
 #!/usr/bin/env python
-from __future__ import with_statement   # for Python 2.5 support
-import divisi2
-from divisi2.ordered_set import PrioritySet
-from luminoso.term_database import TermDatabase, _BIG
-from luminoso.text_readers import get_reader, DOCUMENT
-import os
-from config import Config
-try:
-    import json
-except ImportError:
-    import simplejson as json
-
-
 """
+This module defines the LuminosoSpace object in luminoso2.
+
 Overall design:
 - Luminoso as a whole defines some canonicals that can be easily included
 - A LuminosoSpace contains many LuminosoStudies, plus canonicals
@@ -20,6 +9,14 @@ Overall design:
 - Spaces and studies are configured using the `config` module, giving
   configurations that are both easily human-readable and computer-readable
 """
+
+from __future__ import with_statement   # for Python 2.5 support
+import divisi2
+from divisi2.ordered_set import PrioritySet
+from luminoso.term_database import TermDatabase, _BIG
+from luminoso.text_readers import get_reader, DOCUMENT
+import os
+from config import Config
 
 class LuminosoSpace(object):
     """
@@ -120,7 +117,7 @@ class LuminosoSpace(object):
         """
         Handle when a key falls out of the PrioritySet.
         """
-        self.assoc.left[index,:] = 0
+        self.assoc.left[index, :] = 0
 
     def add_document(self, docname, text, reader_name=None):
         """
@@ -174,6 +171,6 @@ class LuminosoSpace(object):
         Make a LuminosoSpace trained on English common sense.
         """
         assoc = divisi2.network.conceptnet_assoc('en')
-        (U, S, _) = assoc.normalize_all().svd(k=100)
-        rmat = divisi2.reconstruct_activation(U, S, post_normalize=True)
+        (matU, diagS, _) = assoc.normalize_all().svd(k=100)
+        rmat = divisi2.reconstruct_activation(matU, diagS, post_normalize=True)
         return LuminosoSpace.make(dir, rmat)

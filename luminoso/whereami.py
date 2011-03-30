@@ -12,13 +12,15 @@ def module_path():
     even if we are frozen using py2exe"""
 
     if we_are_frozen():
-        return os.path.dirname(unicode(sys.executable, sys.getfilesystemencoding( )))+os.path.sep+'luminoso'
+        return os.path.dirname(
+          unicode(sys.executable, sys.getfilesystemencoding())
+        ) + os.path.sep + 'luminoso'
 
-    return os.path.dirname(unicode(__file__, sys.getfilesystemencoding( )))
+    return os.path.dirname(unicode(__file__, sys.getfilesystemencoding()))
 
 
 # Define the top-level luminoso/ directory, where data files can be found.
-package_dir = os.path.dirname(module_path())
+PACKAGE_DIR = os.path.dirname(module_path())
 
 def get_icon(path):
-    return package_dir + os.path.sep + 'icons' + os.path.sep + path
+    return PACKAGE_DIR + os.path.sep + 'icons' + os.path.sep + path
