@@ -6,14 +6,25 @@ available as a plugin for Emacs, Sublime Text 2 (which I use), and possibly
 for vim.
 
 * Design plans [0/7]
-  - [ ] New "LuminosoSpace" that can be incrementally trained [1/4]
+  - [ ] New "LuminosoSpace" that can be incrementally trained [1/6]
     - [ ] Figure out {{rough incremental blending}}
     - [X] Look into normalization
+    - [ ] Test basic association
+    - [ ] Test tags
     - [ ] Converter from previous study
     - [ ] Document
 
-  - [ ] A variety of possible data sources [0/4]
+  - [ ] LuminosoStudies on top of LuminosoSpaces [0/6]
+    - [ ] Discover from filesystem
+    - [ ] Look into chi-squared correlation
+    - [ ] Centrality
+    - [ ] Interesting concepts (make more interesting)
+    - [ ] Tag prediction (classification, as in SVM)
+    - [ ] Document these
+
+  - [ ] A variety of possible data sources [0/5]
     - [ ] Text files
+    - [ ] PDF/Word/HTML
     - [ ] SQL
     - [ ] Mongo
     - [ ] Document these
@@ -22,12 +33,6 @@ for vim.
     - [X] simplenlp, English
     - [ ] simplenlp, Japanese
     - [ ] Dependency parser
-    - [ ] Document these
-
-  - [ ] Statistics for 'studies', collections of documents in the space [0/4]
-    - [ ] Look into chi-squared correlation
-    - [ ] Centrality
-    - [ ] Interesting concepts (make more interesting)
     - [ ] Document these
 
   - [ ] HTML/JS interface (job for a UROP?) [0/4]
