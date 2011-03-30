@@ -12,6 +12,7 @@ Overall design:
 
 from __future__ import with_statement   # for Python 2.5 support
 import divisi2
+from divisi2.reconstructed import ReconstructedMatrix
 from divisi2.ordered_set import PrioritySet
 from luminoso.term_database import TermDatabase, _BIG
 from luminoso.text_readers import get_reader, DOCUMENT
@@ -33,17 +34,17 @@ class LuminosoSpace(object):
     ASSOC_FILENAME = 'associations.rmat'
     DB_FILENAME = 'terms.sqlite'
 
-    def __init__(self, dir):
+    def __init__(self, space_dir):
         """
         A LuminosoSpace is constructed from `dir`, a path to a directory.
         This directory will contain saved versions of various matrices, as
         well as a SQLite database of terms and documents.
         """
-        if not os.access(dir, os.R_OK):
+        if not os.access(space_dir, os.R_OK):
             raise IOError("Cannot read the study directory %s. "
                           "Use LuminosoSpace.make() to make a new one."
-                          % dir)
-        self.dir = dir
+                          % space_dir)
+        self.dir = space_dir
         self._load_config()
         self._load_assoc()
         self.database = TermDatabase(
@@ -70,7 +71,7 @@ class LuminosoSpace(object):
               open(self.filename_in_dir(LuminosoSpace.CONFIG_FILENAME))
             )
         else:
-            self.config = self._default_config()
+            self.config = _default_config()
             self.save_config()
 
     def save_config(self):
@@ -79,19 +80,11 @@ class LuminosoSpace(object):
         self.config.save(out)
         out.close()
 
-    def _default_config(self):
-        "The default configuration for new studies."
-        config = Config()
-        # FIXME: so far we just assume that these will match the initial rmat
-        config['num_concepts'] = 50000
-        config['num_axes'] = 100
-        config['reader'] = 'simplenlp.en'
-        return config
-
     def _load_assoc(self):
         "Load the association matrix and priority queue from a file."
         if self.file_exists_in_dir('associations.rmat'):
             self.assoc = divisi2.load(self.filename_in_dir('associations.rmat'))
+            assert isinstance(self.assoc, ReconstructedMatrix)
         else:
             raise IOError("This LuminosoSpace does not have an "
                           "'associations.rmat' file. Use LuminosoSpace.make() "
@@ -159,18 +152,34 @@ class LuminosoSpace(object):
         return "<LuminosoSpace: %r>" % self.dir
 
     @staticmethod
-    def make(dir, rmat):
-        os.mkdir(dir)
-        rmat_file = dir + os.sep + 'associations.rmat'
+    def make(space_dir, rmat):
+        """
+        Make a new LuminosoSpace in the (nonexistent) directory `dir`,
+        with initial association matrix `rmat`.
+        """
+        os.mkdir(space_dir)
+        rmat_file = space_dir + os.sep + 'associations.rmat'
         divisi2.save(rmat_file, rmat)
-        return LuminosoSpace(dir)
+        return LuminosoSpace(space_dir)
 
     @staticmethod
-    def make_english(dir):
+    def make_english(space_dir):
         """
-        Make a LuminosoSpace trained on English common sense.
+        Make a LuminosoSpace whose initial matrix contains English common sense.
         """
         assoc = divisi2.network.conceptnet_assoc('en')
-        (matU, diagS, _) = assoc.normalize_all().svd(k=100)
-        rmat = divisi2.reconstruct_activation(matU, diagS, post_normalize=True)
-        return LuminosoSpace.make(dir, rmat)
+        (mat_U, diag_S, _) = assoc.normalize_all().svd(k=100)
+        rmat = divisi2.reconstruct_activation(
+            mat_U, diag_S, post_normalize=True
+        )
+        return LuminosoSpace.make(space_dir, rmat)
+
+def _default_config():
+    "The default configuration for new studies."
+    config = Config()
+    # FIXME: so far we just assume that these will match the initial rmat
+    config['num_concepts'] = 50000
+    config['num_axes'] = 100
+    config['reader'] = 'simplenlp.en'
+    return config
+

@@ -158,12 +158,20 @@ class TermDatabase(object):
     A SQLite database that counts terms and their occurrences in documents.
     """
     def __init__(self, filename):
+        """
+        Open or create a TermDatabase, given its filename.
+        """
         self.sql_engine = create_engine('sqlite:///'+filename)
         self.sql_session_maker = sessionmaker(bind=self.sql_engine)
         self.sql_session = self.sql_session_maker()
         Base.metadata.create_all(bind=self.sql_engine)
 
     def _increment_term_count(self, term, value=1, newdoc=False):
+        """
+        Increment the recorded number of times we have seen `term` by
+        `value`. Also, if `newdoc` is True, increment the number of distinct
+        documents containing the term.
+        """
         term_entry = self.sql_session.query(Term).get(term)
         if term_entry:
             term_entry.count += value
@@ -194,8 +202,13 @@ class TermDatabase(object):
             return True
     
     def increment_term_in_document(self, term, document, value=1):
+        """
+        Record the fact that a given term appeared in a given document, with
+        weight `value`. This will additionally update the relevance value
+        of the term, and if the term is a tag, record the tag on the document.
+        """
         if isinstance(term, tuple) and term[0] == TAG:
-            return self.set_tag_on_document(self, term, document)
+            return self.set_tag_on_document(term, document)
         newdoc = self._increment_term_document_count(term, document, value)
         absv = abs(value)
         self._increment_term_count(term, newdoc, absv)
@@ -205,6 +218,10 @@ class TermDatabase(object):
         self.commit()
 
     def set_tag_on_document(self, tag, document):
+        """
+        Record the fact that this document has this tag as a Feature in the
+        database.
+        """
         key = tag[1]
         value = tag[2]
         query = self.sql_session.query(Feature)\
@@ -245,9 +262,16 @@ class TermDatabase(object):
         self.commit()
 
     def get_document(self, docname):
+        """
+        Get a Document from the database by its name.
+        """
         return self.sql_session.query(Document).get(docname)
 
     def _clear_document(self, document):
+        """
+        Remove the information that we got from a given Document, given its
+        name.
+        """
         query = self.sql_session.query(TermInDocument)\
                     .filter(TermInDocument.document == document)
         doc = self.sql_session.query(Document).get(document)
@@ -260,10 +284,17 @@ class TermDatabase(object):
         doc.delete()
     
     def clear_document(self, document):
+        """
+        Remove the information that we got from a given Document, given its
+        name.
+        """
         self._clear_document(document)
         self.commit()
     
     def count_term(self, term):
+        """
+        Returns the number of times we have seen this term.
+        """
         term_entry = self.sql_session.query(Term).get(term)
         if term_entry:
             return term_entry.count
@@ -271,6 +302,12 @@ class TermDatabase(object):
             return 0
 
     def term_relevance(self, term):
+        """
+        Returns the relevance of the term, which is either its unigram
+        frequency or its bigram likelihood ratio (a function defined by NLTK
+        that expresses when a bigram occurs more often than its unigram parts
+        would imply).
+        """
         words = term.split(' ')
         if isinstance(term, tuple):
             # probably a tag
@@ -289,14 +326,25 @@ class TermDatabase(object):
                 "I don't know how to handle trigrams or larger"
             )
     
-    def top_terms(self, n):
-        return self.sql_session.query(Term).order_by(desc(Term.relevance))[:n]
+    def top_terms(self, nterms):
+        """
+        Get the `nterms` most relevant terms.
+        """
+        return self.sql_session.query(Term)\
+                   .order_by(desc(Term.relevance))[:nterms]
     
     def _update_term_relevance(self, term):
+        """
+        Calculate the new relevance value of a term and store it in the
+        database.
+        """
         term_entry = self.sql_session.query(Term).get(term)
         term_entry.relevance = self.term_relevance(term)
 
     def count_term_in_document(self, term, document):
+        """
+        Get the number of times the given term appeared in the given document.
+        """
         query = self.sql_session.query(TermInDocument)\
                   .filter(TermInDocument.term == term)\
                   .filter(TermInDocument.document == document)
@@ -307,6 +355,9 @@ class TermDatabase(object):
             return 0
     
     def count_term_distinct_documents(self, term):
+        """
+        Get the number of distinct documents a term has appeared in.
+        """
         term_entry = self.sql_session.query(Term).get(term)
         if term_entry:
             return term_entry.distinct_docs
@@ -314,6 +365,9 @@ class TermDatabase(object):
             return 0
 
     def count_documents(self):
+        """
+        Get the total number of documents we have seen.
+        """
         return self.count_term_distinct_documents(ANY)
     
     #def set_global(self, key, value):
@@ -340,6 +394,10 @@ class TermDatabase(object):
     #        self.sql_session.add(global_entry)
 
     def tfidf_term_in_document(self, term, document):
+        """
+        Calculate the TF-IDF (Term Frequency by Inverse Document Frequency)
+        value for a given term in a given document. This expresses
+        """
         tf = self.count_term_in_document(term, document)\
            / self.count_term_in_document(ANY, document)
         idf = math.log(1 + self.count_term_distinct_documents(ANY))\
@@ -347,5 +405,8 @@ class TermDatabase(object):
         return tf * idf
 
     def commit(self):
+        """
+        Commit all changes to the database.
+        """
         self.sql_session.commit()
 

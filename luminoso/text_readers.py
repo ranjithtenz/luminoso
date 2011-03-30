@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+This module defines a variety of classes that can be used to read plain text
+and return word associations. Which reader to use depends on the complexity
+of the task and what language the text is in.
+"""
 from simplenlp import get_nl
 
 # TODO:
@@ -37,6 +42,8 @@ class SimpleNLPEnglishReader(TextReader):
     It also includes negative contexts. When one term in a pair appears in a
     negative context, the sign of the connection is flipped. The sign of the
     negated term's connection to the document is also flipped.
+
+    TODO: factor out common things into SimpleNLPReader.
     """
     # this punctuation symbol marks the strongest possible division in a text,
     # so that no word associations can occur across it. We intend for this
@@ -62,22 +69,44 @@ class SimpleNLPEnglishReader(TextReader):
     ]
 
     def __init__(self, distance_weight=0.9, negation_weight=-0.5, cutoff=0.1):
+        """
+        Create a reader that reads English text using `simplenlp`. You can
+        optionally adjust the weights for how much various terms affect
+        each other.
+        """
         self.nl = get_nl('en')
         self.negation_weight = negation_weight
         self.distance_weight = distance_weight
         self.cutoff = cutoff
 
     def tokenize(self, text):
+        """
+        Return a list of the (lemmatized, non-stopword) tokens that appear in
+        the text.
+        """
         spaced = self.nl.lemma_split(text)[0]
         return spaced.split()
     
     def _attenuate(self, memory):
+        """
+        Decrease the weights of the terms that are currently in memory, as
+        they get farther from our place in the text.
+        Remove them if they fall below the given cutoff value.
+        """
         for i in reversed(xrange(len(memory))):
             memory[i][1] *= self.distance_weight
             if memory[i][1] < self.cutoff:
                 del memory[i]
 
     def extract_connections(self, text):
+        """
+        Determine which terms appear near each other in the given document,
+        and output a generator of (weight, term1, term2) connections that
+        can be used to train a LuminosoSpace.
+
+        The special term named `DOCUMENT` is used to mark the strength with
+        which each term appears in the document itself.
+        """
         cls = self.__class__             # convenient shorthand
         
         tokens = self.tokenize(text)
@@ -105,7 +134,7 @@ class SimpleNLPEnglishReader(TextReader):
                 elif (token.startswith(u'#') or token.startswith(u'+') or
                       token.startswith(u'-')) and len(token) > 2:
                     # it's a tag
-                    tag = self.parse_tag(token)
+                    tag = parse_tag(token)
                     yield (0, DOCUMENT, tag)
                     prev_token = None
                 else:
@@ -126,25 +155,32 @@ class SimpleNLPEnglishReader(TextReader):
                         # Is this the right way to do that?
                         yield (weight*prev_weight, prev, term)
     
-    def parse_tag(self, token):
-        if token.startswith(u'#'):
-            if u'=' in token:
-                key, value = token.split(u'=', 1)
-            else:
-                key = token[1:]
-                value = None
-        elif token.startswith(u'+'):
-            key = token[1:]
-            value = True
-        elif token.startswith(u'-'):
-            key = token[1:]
-            value = False
+def parse_tag(token):
+    """
+    If this token is a specially-marked tag, parse it into a consistent format.
+
+    Returns a tuple of `(TAG, key, value)`, where `TAG` is a special flag
+    value, `key` is the name of the tag, and `value` is the value it is
+    assigned (or None).
+    """
+    if token.startswith(u'#'):
+        if u'=' in token:
+            key, value = token.split(u'=', 1)
         else:
-            # this shouldn't happen, but if it does, it's not worth throwing
-            # an error.
-            key = token
+            key = token[1:]
             value = None
-        return (TAG, key, value)
+    elif token.startswith(u'+'):
+        key = token[1:]
+        value = True
+    elif token.startswith(u'-'):
+        key = token[1:]
+        value = False
+    else:
+        # this shouldn't happen, but if it does, it's not worth throwing
+        # an error.
+        key = token
+        value = None
+    return (TAG, key, value)
 
 READERS = {
     'simplenlp.en': SimpleNLPEnglishReader,

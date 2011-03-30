@@ -1,3 +1,8 @@
+"""
+Utility functions to determine where on the filesystem this code is being run
+from.
+"""
+
 import os
 import sys
 
@@ -18,9 +23,11 @@ def module_path():
 
     return os.path.dirname(unicode(__file__, sys.getfilesystemencoding()))
 
-
 # Define the top-level luminoso/ directory, where data files can be found.
 PACKAGE_DIR = os.path.dirname(module_path())
 
 def get_icon(path):
+    """
+    Get a filename in the top-level `icons` directory.
+    """
     return PACKAGE_DIR + os.path.sep + 'icons' + os.path.sep + path
