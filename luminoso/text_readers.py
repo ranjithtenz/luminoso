@@ -142,7 +142,6 @@ class SimpleNLPEnglishReader(TextReader):
                     active_terms = [token]
                     if prev_token is not None:
                         bigram = prev_token + u' ' + token
-                        # FIXME: Why is this here?
                         active_terms.append(bigram)
                     for term in active_terms:
                         yield (weight, DOCUMENT, term)
@@ -166,6 +165,11 @@ def parse_tag(token):
     if token.startswith(u'#'):
         if u'=' in token:
             key, value = token.split(u'=', 1)
+            # handle numeric values
+            try:
+                value = float(value)
+            except ValueError:
+                pass
         else:
             key = token[1:]
             value = None

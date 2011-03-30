@@ -112,14 +112,25 @@ class LuminosoSpace(object):
         """
         self.assoc.left[index, :] = 0
 
-    def add_document(self, docname, text, reader_name=None):
+    def add_document(self, doc, reader_name=None):
         """
         Take in a document, pass it through the reader, and store its terms
         in the term database.
+
+        The document should be expressed as a dictionary, containing at least
+        these keys:
+        - name: the unique identifier for the document
+        - text: the plain text of the document, possibly including text-encoded
+          tags
+
+        Optionally, it may contain:
+        - tags: (key, value) tuples representing tags
         """
         if reader_name is None:
             reader_name = self.config['reader']
         reader = get_reader(reader_name)
+        docname = doc['name']
+        text = doc['text']
         doc_terms = []
         for weight, term1, term2 in reader.extract_connections(text):
             if term1 == DOCUMENT:
@@ -128,6 +139,8 @@ class LuminosoSpace(object):
                 self.priority.add(term2)
                 self.priority.update(term2, relevance)
         self.database.add_document(docname, doc_terms, text, reader_name)
+        for key, value in doc.get('tags', []):
+            self.database.set_tag_on_document(docname, key, value)
 
     def learn_document(self, docname):
         """

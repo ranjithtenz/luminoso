@@ -13,6 +13,10 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.schema import Index
 from sqlalchemy.sql.expression import desc
 from sqlalchemy import create_engine, Column, Integer, Float, String, Text
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 def _expected_values(cont):
     """
@@ -46,6 +50,12 @@ def bigram_likelihood_ratio(n_12, n_1, n_2, n):
     likelihood = (2 * sum(obs * math.log(float(obs) / (exp + _SMALL) + _SMALL)
                          for obs, exp in zip(contingency, expected)))
     return likelihood
+
+def json_encode(value):
+    """
+    Use JSON to represent any builtin value as a string.
+    """
+    return json.dumps(value)
 
 ANY = '*'
 Base = declarative_base()
@@ -208,7 +218,7 @@ class TermDatabase(object):
         of the term, and if the term is a tag, record the tag on the document.
         """
         if isinstance(term, tuple) and term[0] == TAG:
-            return self.set_tag_on_document(term, document)
+            return self.set_tag_on_document(document, term[1], term[2])
         newdoc = self._increment_term_document_count(term, document, value)
         absv = abs(value)
         self._increment_term_count(term, newdoc, absv)
@@ -217,21 +227,19 @@ class TermDatabase(object):
         self._update_term_relevance(term)
         self.commit()
 
-    def set_tag_on_document(self, tag, document):
+    def set_tag_on_document(self, document, key, value):
         """
         Record the fact that this document has this tag as a Feature in the
         database.
         """
-        key = tag[1]
-        value = tag[2]
         query = self.sql_session.query(Feature)\
                   .filter(Feature.document == document)\
                   .filter(Feature.key == key)
         try:
             tag_entry = query.one()
-            tag_entry.value = value
+            tag_entry.value = json_encode(value)
         except NoResultFound:
-            tag_entry = Feature(document, key, value)
+            tag_entry = Feature(document, key, json_encode(value))
             self.sql_session.add(tag_entry)
         self.commit()
     
