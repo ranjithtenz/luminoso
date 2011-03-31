@@ -22,8 +22,9 @@ for vim.
     - [ ] Tag prediction (classification, as in SVM)
     - [ ] Document these
 
-  - [ ] A variety of possible data sources [0/7]
-    - [ ] Text files
+  - [ ] A variety of possible data sources [2/8]
+    - [X] Text files
+    - [X] JSON
     - [ ] PDF/Word/HTML
     - [ ] SQL
     - [ ] Mongo

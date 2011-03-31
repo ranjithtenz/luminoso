@@ -3,6 +3,8 @@ This is the top-level module of Luminoso version 2.
 """
 from luminoso.luminoso_space import LuminosoSpace
 import warnings
+import logging, sys
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 # suppress warnings internal to PyLint
 warnings.simplefilter("ignore")
