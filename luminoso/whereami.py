@@ -26,6 +26,15 @@ def module_path():
 # Define the top-level luminoso/ directory, where data files can be found.
 PACKAGE_DIR = os.path.dirname(module_path())
 
+def get_project_filename(path):
+    """
+    Get a valid path referring to a given filename in the project directory.
+    """
+    if PACKAGE_DIR:
+        return PACKAGE_DIR + os.path.sep + path
+    else:
+        return path
+
 def get_icon(path):
     """
     Get a filename in the top-level `icons` directory.

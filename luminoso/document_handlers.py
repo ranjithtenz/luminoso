@@ -24,16 +24,20 @@ def handle_text_file(filename, name=None):
     rawtext.close()
 
     text = codecs.open(filename, encoding=encoding, errors='replace').read()
-    for result in handle_text(name or filenameb, text):
+    for result in handle_text(name or filename, text):
         yield result
 
 def handle_text(name, text):
-    name = unicode(name or filename, errors='replace')
+    """
+    Given plain text content, return it as a document dictionary.
+    """
+    name = unicode(name, errors='replace')
     yield dict(name=name, text=text)
 
 def _check_document(document):
     """
-    Upon retrieving a document, see if it fits the format Luminoso expects.
+    Upon retrieving a document dictionary, see if it fits the format Luminoso
+    expects.
     """
     return (isinstance(document, dict) and 
             'name' in document and 'text' in document)
@@ -91,7 +95,10 @@ def handle_directory(dirname):
     """
     Handle a directory and get a stream of documents out of it.
     """
-    raise NotImplementedError
+    for file in os.listdir(dirname):
+        if not file.startswith('.'):
+            for result in handle_url(dirname+os.sep+file):
+                yield result
 
 def handle_url(url, name=None):
     """
@@ -99,11 +106,12 @@ def handle_url(url, name=None):
 
     TODO: handle schemas that aren't local files.
     """
-    if os.access(url, F_OK):
-        if os.access(url+'/', F_OK): # it's a directory
+    if os.access(url, os.F_OK):
+        if os.access(url+'/', os.F_OK): # it's a directory
             for result in handle_directory(url):
                 yield result
         elif url.endswith('.json') or url.endswith('.js'):
-            for result in handle_json_file
+            for result in handle_json_file:
+                yield result
     else:
         LOG.warn("could not open %r#%r")
