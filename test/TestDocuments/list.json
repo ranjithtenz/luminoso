@@ -1,0 +1,3 @@
+[{"name": "Entry 1", "text": "one two three"},
+ {"name": "Entry 2", "text": "two three four"},
+ {"name": "Entry 3", "url": "../MoreTestDocuments/relative.txt"}]

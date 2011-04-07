@@ -1,7 +1,7 @@
 """
 This is the top-level module of Luminoso version 2.
 """
-from luminoso.luminoso_space import LuminosoSpace
+from luminoso.model import LuminosoModel
 import warnings
 import logging, sys
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -9,15 +9,15 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 # suppress warnings internal to PyLint
 warnings.simplefilter("ignore")
 
-def make_english(space_dir):
+def make_english(model_dir):
     """
     A shortcut to make a new study, trained on English-language common sense,
     in the given directory (which must not already exist).
     """
-    return LuminosoSpace.make_english(space_dir)
+    return LuminosoModel.make_english(model_dir)
 
-def load(space_dir):
+def load(model_dir):
     """
-    Load a LuminosoSpace.
+    Load a LuminosoModel.
     """
-    return LuminosoSpace(space_dir)
+    return LuminosoModel(model_dir)

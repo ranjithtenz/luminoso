@@ -69,10 +69,12 @@ class Term(Base):
     """
     __tablename__ = 'terms'
     term = Column(String, primary_key=True)
+    fulltext = Column(String, nullable=True)
     count = Column(Float, nullable=False)
     words = Column(Integer, nullable=False)
     relevance = Column(Float, nullable=False, index=True)
     distinct_docs = Column(Integer, nullable=False)
+    priority_index = Column(Integer, nullable=True, index=True)
 
     def __init__(self, term, count, distinct_docs, relevance):
         self.term = term
@@ -80,6 +82,7 @@ class Term(Base):
         self.distinct_docs = distinct_docs
         self.words = len(term.split())
         self.relevance = relevance
+        self.priority_index = None
     
     def __repr__(self):
         return "<%r, %d occurrences in %d documents>" % (self.term,
@@ -137,22 +140,25 @@ class Document(Base):
     """
     A table row storing the text of a document. Contains the following fields:
 
-    - name: a unique identifier for the document.
+    - id: a unique identifier for the document.
+    - name: the human-readable document name.
     - reader: the process that extracted terms and features from the document.
     - text: a human-readable representation of the document.
     """
     __tablename__ = 'documents'
-    name = Column(String, nullable=False, index=True, primary_key=True)
+    id = Column(String, nullable=False, index=True, primary_key=True)
+    name = Column(String, nullable=False)
     reader = Column(String, nullable=False)
     text = Column(Text, nullable=False)
 
-    def __init__(self, name, reader, text):
+    def __init__(self, id, name, reader, text):
+        self.id = id
         self.name = name
         self.reader = reader
         self.text = text
     
     def __repr__(self):
-        return "<Document [%s]: %r>" % (self.reader, self.name)
+        return "<Document [%s]: %r from %r>" % (self.reader, self.id, self.name)
 
 #class GlobalData(Base):
 #    __tablename__ = 'global_data'
@@ -193,9 +199,9 @@ class TermDatabase(object):
             term_entry = Term(term, value, 1, 0)
             self.sql_session.add(term_entry)
         
-    def _increment_term_document_count(self, term, document, value=1):
+    def _increment_term_document_count(self, document, term, value=1):
         """
-        Increments the count of a term in a document. Returns true if that
+        Increments the count of a term in a document. Returns True if that
         term has not appeared in that document before, so that the Term
         entry can also make note of that.
         """
@@ -211,26 +217,29 @@ class TermDatabase(object):
             self.sql_session.add(term_entry)
             return True
     
-    def increment_term_in_document(self, term, document, value=1):
+    def increment_term_in_document(self, document, term, value=1):
         """
         Record the fact that a given term appeared in a given document, with
         weight `value`. This will additionally update the relevance value
         of the term, and if the term is a tag, record the tag on the document.
+
+        This does not automatically commit changes to the database.
         """
         if isinstance(term, tuple) and term[0] == TAG:
             return self.set_tag_on_document(document, term[1], term[2])
-        newdoc = self._increment_term_document_count(term, document, value)
+        newdoc = self._increment_term_document_count(document, term, value)
         absv = abs(value)
         self._increment_term_count(term, newdoc, absv)
-        newdoc_any = self._increment_term_document_count(ANY, document, absv)
+        newdoc_any = self._increment_term_document_count(document, ANY, absv)
         self._increment_term_count(ANY, newdoc_any, absv)
         self._update_term_relevance(term)
-        self.commit()
-
+    
     def set_tag_on_document(self, document, key, value):
         """
         Record the fact that this document has this tag as a Feature in the
         database.
+
+        This does not automatically commit changes to the database.
         """
         query = self.sql_session.query(Feature)\
                   .filter(Feature.document == document)\
@@ -241,16 +250,70 @@ class TermDatabase(object):
         except NoResultFound:
             tag_entry = Feature(document, key, json_encode(value))
             self.sql_session.add(tag_entry)
-        self.commit()
+ 
+    def set_term_text(self, term, fulltext):
+        """
+        After observing the use of a term in a document, record the full text
+        that it came from. If the term is not in the database, this has no
+        effect.
+
+        This does not automatically commit changes to the database.
+        """
+        term_entry = self.sql_session.query(Term).get(term)
+        if term_entry:
+            term_entry.fulltext = fulltext
+
+    def set_term_priority_index(self, term, index):
+        """
+        Remember the index number of a term in a PrioritySet, so
+        that we can extract important terms with a JOIN instead of by
+        iterating over the PrioritySet.
+        """
+        term_entry = self.sql_session.query(Term).get(term)
+        if term_entry:
+            term_entry.priority_index = index
+        else:
+            raise KeyError("Term %r is not in the database" % term)
+        
+    def clear_term_priority_index(self, term):
+        """
+        Record the fact that a term has dropped out of a PrioritySet.
+        """
+        term_entry = self.sql_session.query(Term).get(term)
+        if term_entry:
+            term_entry.priority_index = None
+        else:
+            raise KeyError("Term %r is not in the database" % term)
     
-    def add_document(self, docname, terms, text, reader_name):
+    def find_term_texts(self, text, reader):
+        """
+        Given a text and the reader to read it with, record which
+        phrases correspond to which canonicalized terms, independently of
+        the documents that they appear in. This gives a human-readable name
+        to most terms.
+        """
+        for term, phrase in reader.extract_term_texts(text):
+            self.set_term_text(term, phrase)
+        tokens = reader.tokenize(text)
+        for window in xrange(1, 5):
+            for left in xrange(len(tokens) - window + 1):
+                right = left + window
+                phrase = reader.untokenize(tokens[left:right])
+
+   
+    def add_document(self, doc_info):
         """
         Record the terms in a document in the database. If the database already
         has a document with this name, that document will be replaced.
 
-        The terms must already be extracted by some other process.
+        The terms must already be extracted by some other process, and saved
+        into the document dictionary as the key 'terms'.
         `reader_name` indicates which reader was used.
         """
+        docname = doc_info[u'name']
+        terms = doc_info[u'terms']
+        text = doc_info[u'text']
+        reader_name = doc_info[u'reader']
         doc = self.sql_session.query(Document).get(docname)
         if doc is not None:
             if doc.text == text and doc.reader == reader_name:
@@ -264,7 +327,11 @@ class TermDatabase(object):
                 term, value = term
             else:
                 value = 1
-            self.increment_term_in_document(term, docname, value)
+            self.increment_term_in_document(docname, term, value)
+
+        for key, value in doc.get('tags', []):
+            self.set_tag_on_document(docname, key, value)
+        
         doc = Document(docname, reader_name, text)
         self.sql_session.add(doc)
         self.commit()

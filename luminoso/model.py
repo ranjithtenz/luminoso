@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """
-This module defines the LuminosoSpace object in luminoso2.
+This module defines the LuminosoModel object in luminoso2.
 
 Overall design:
 - Luminoso as a whole defines some canonicals that can be easily included
-- A LuminosoSpace contains many LuminosoStudies, plus canonicals
-- A LuminosoStudy contains many Documents (many of which also go into the space)
+- A LuminosoModel contains many LuminosoStudies, plus canonicals
+- A LuminosoStudy contains many Documents (many of which also go into the model)
 - Spaces and studies are configured using the `config` module, giving
   configurations that are both easily human-readable and computer-readable
 """
@@ -18,14 +18,16 @@ from luminoso.term_database import TermDatabase, _BIG
 from luminoso.text_readers import get_reader, DOCUMENT
 import os
 from config import Config
+import logging
+LOG = logging.getLogger(__name__)
 
-class LuminosoSpace(object):
+class LuminosoModel(object):
     """
-    A LuminosoSpace is a meta-study. You supply it with as many documents
+    A LuminosoModel is a meta-study. You supply it with as many documents
     as possible from the space of documents you intend to analyze, or
     possibly other forms of domain-specific knowledge.
 
-    The LuminosoSpace represents the semantic similarities between things
+    The LuminosoModel represents the semantic similarities between things
     as a Divisi2 reconstructed association matrix. This matrix can be
     updated incrementally to take new data into account, which is how
     Luminoso learns new domain-specific knowledge.
@@ -34,41 +36,41 @@ class LuminosoSpace(object):
     ASSOC_FILENAME = 'associations.rmat'
     DB_FILENAME = 'terms.sqlite'
 
-    def __init__(self, space_dir):
+    def __init__(self, model_dir):
         """
-        A LuminosoSpace is constructed from `dir`, a path to a directory.
+        A LuminosoModel is constructed from `dir`, a path to a directory.
         This directory will contain saved versions of various matrices, as
         well as a SQLite database of terms and documents.
         """
-        if not os.access(space_dir, os.R_OK):
+        if not os.access(model_dir, os.R_OK):
             raise IOError("Cannot read the study directory %s. "
-                          "Use LuminosoSpace.make() to make a new one."
-                          % space_dir)
-        self.dir = space_dir
+                          "Use LuminosoModel.make() to make a new one."
+                          % model_dir)
+        self.dir = model_dir
         self._load_config()
         self._load_assoc()
         self.database = TermDatabase(
-          self.filename_in_dir(LuminosoSpace.DB_FILENAME)
+          self.filename_in_dir(LuminosoModel.DB_FILENAME)
         )
     
     def filename_in_dir(self, filename):
         """
-        Given a filename relative to this LuminosoSpace's directory, get its
+        Given a filename relative to this LuminosoModel's directory, get its
         complete path.
         """
         return self.dir + os.sep + filename
     
     def file_exists_in_dir(self, filename):
         """
-        Determine whether a file exists in this LuminosoSpace's directory.
+        Determine whether a file exists in this LuminosoModel's directory.
         """
         return os.access(self.filename_in_dir(filename), os.F_OK)
 
     def _load_config(self):
         "Load the configuration file."
-        if self.file_exists_in_dir(LuminosoSpace.CONFIG_FILENAME):
+        if self.file_exists_in_dir(LuminosoModel.CONFIG_FILENAME):
             self.config = Config(
-              open(self.filename_in_dir(LuminosoSpace.CONFIG_FILENAME))
+              open(self.filename_in_dir(LuminosoModel.CONFIG_FILENAME))
             )
         else:
             self.config = _default_config()
@@ -76,7 +78,7 @@ class LuminosoSpace(object):
 
     def save_config(self):
         "Save the current configuration to the configuration file."
-        out = open(self.filename_in_dir(LuminosoSpace.CONFIG_FILENAME), 'w')
+        out = open(self.filename_in_dir(LuminosoModel.CONFIG_FILENAME), 'w')
         self.config.save(out)
         out.close()
 
@@ -86,18 +88,18 @@ class LuminosoSpace(object):
             self.assoc = divisi2.load(self.filename_in_dir('associations.rmat'))
             assert isinstance(self.assoc, ReconstructedMatrix)
         else:
-            raise IOError("This LuminosoSpace does not have an "
-                          "'associations.rmat' file. Use LuminosoSpace.make() "
-                          "to make a valid LuminosoSpace.")
-        if not isinstance(self.assoc.row_labels, PrioritySet):
+            raise IOError("This LuminosoModel does not have an "
+                          "'associations.rmat' file. Use LuminosoModel.make() "
+                          "to make a valid LuminosoModel.")
+        if not isinstance(self.assoc.left.row_labels, PrioritySet):
             # turn an ordinary ReconstructedMatrix into one that has
             # PrioritySets for indices
             priority = PrioritySet(self.config['num_concepts'])
             items = self.assoc.row_labels
             item_tuples = zip(items, [_BIG] * len(items))
             priority.load_items(item_tuples)
-            self.assoc.row_labels = priority
-            self.assoc.col_labels = priority
+            self.assoc.left.row_labels = priority
+            self.assoc.right.col_labels = priority
 
         self.priority = self.assoc.row_labels
         self.priority.listen_for_drops(self.on_drop)
@@ -111,6 +113,7 @@ class LuminosoSpace(object):
         Handle when a key falls out of the PrioritySet.
         """
         self.assoc.left[index, :] = 0
+        self.database.clear_term_priority_index(key)
 
     def add_document(self, doc, reader_name=None):
         """
@@ -122,14 +125,16 @@ class LuminosoSpace(object):
         - name: the unique identifier for the document
         - text: the plain text of the document, possibly including text-encoded
           tags
+        - url: a unique identifier for the document, preferably one that
+          actually locates it relative to the study
 
         Optionally, it may contain:
         - tags: (key, value) tuples representing tags
         """
+        LOG.info("Reading document: %r" % doc['url'])
         if reader_name is None:
             reader_name = self.config['reader']
         reader = get_reader(reader_name)
-        docname = doc['name']
         text = doc['text']
         doc_terms = []
         for weight, term1, term2 in reader.extract_connections(text):
@@ -138,9 +143,11 @@ class LuminosoSpace(object):
                 relevance = self.database.term_relevance(term2)
                 self.priority.add(term2)
                 self.priority.update(term2, relevance)
-        self.database.add_document(docname, doc_terms, text, reader_name)
-        for key, value in doc.get('tags', []):
-            self.database.set_tag_on_document(docname, key, value)
+
+        doc['reader'] = reader
+        doc['terms'] = doc_terms
+        self.database.add_document(doc)
+        self.database.find_term_texts(text, reader)
 
     def learn_document(self, docname):
         """
@@ -158,34 +165,39 @@ class LuminosoSpace(object):
         Learn the strength of the association between term1 and term2.
         """
         row = self.assoc.row_labels.add(term1)
+        self.database.set_term_priority_index(term1, row)
         col = self.assoc.col_labels.add(term2)
-        self.assoc[row, col] = weight          # do a Hebbian step
+        self.database.set_term_priority_index(term2, col)
+        mse = self.assoc.hebbian_step(row, col, weight)
+        return mse
 
     def __repr__(self):
-        return "<LuminosoSpace: %r>" % self.dir
+        return "<LuminosoModel: %r>" % self.dir
 
     @staticmethod
-    def make(space_dir, rmat):
+    def make(model_dir, rmat):
         """
-        Make a new LuminosoSpace in the (nonexistent) directory `dir`,
+        Make a new LuminosoModel in the (nonexistent) directory `dir`,
         with initial association matrix `rmat`.
         """
-        os.mkdir(space_dir)
-        rmat_file = space_dir + os.sep + 'associations.rmat'
+        os.mkdir(model_dir)
+        rmat_file = model_dir + os.sep + 'associations.rmat'
         divisi2.save(rmat_file, rmat)
-        return LuminosoSpace(space_dir)
+        return LuminosoModel(model_dir)
 
     @staticmethod
-    def make_english(space_dir):
+    def make_english(model_dir):
         """
-        Make a LuminosoSpace whose initial matrix contains English common sense.
+        Make a LuminosoModel whose initial matrix contains English common sense.
         """
         assoc = divisi2.network.conceptnet_assoc('en')
         (mat_U, diag_S, _) = assoc.normalize_all().svd(k=100)
         rmat = divisi2.reconstruct_activation(
             mat_U, diag_S, post_normalize=True
         )
-        return LuminosoSpace.make(space_dir, rmat)
+        model = LuminosoModel.make(model_dir, rmat)
+        model.config['iteration'] = 1000
+        return model
 
 def _default_config():
     "The default configuration for new studies."
@@ -194,5 +206,6 @@ def _default_config():
     config['num_concepts'] = 50000
     config['num_axes'] = 100
     config['reader'] = 'simplenlp.en'
+    config['iteration'] = 0
     return config
 

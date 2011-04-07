@@ -6,7 +6,7 @@ available as a plugin for Emacs, Sublime Text 2 (which I use), and possibly
 for vim.
 
 * Design plans [0/7]
-  - [ ] New "LuminosoSpace" that can be incrementally trained [1/6]
+  - [ ] New "LuminosoModel" that can be incrementally trained [1/6]
     - [ ] Figure out {{rough incremental blending}}
     - [X] Look into normalization
     - [ ] Test basic association
@@ -14,7 +14,7 @@ for vim.
     - [ ] Converter from previous study
     - [ ] Document
 
-  - [ ] LuminosoStudies on top of LuminosoSpaces [0/6]
+  - [ ] LuminosoStudies on top of LuminosoModels [0/6]
     - [ ] Discover from filesystem
     - [ ] Look into chi-squared correlation
     - [ ] Centrality

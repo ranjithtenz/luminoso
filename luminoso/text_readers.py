@@ -30,6 +30,13 @@ class TextReader(object):
         with the first term being the special symbol called DOCUMENT.
         """
         raise NotImplementedError
+    
+    def extract_term_texts(self, text):
+        """
+        Yields a list of (term, phrase) tuples, mapping the normalized form
+        of a term to the full phrase it came from.
+        """
+        raise NotImplementedError
 
 class SimpleNLPEnglishReader(TextReader):
     """
@@ -68,6 +75,8 @@ class SimpleNLPEnglishReader(TextReader):
         'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other'
     ]
 
+    SPECIAL_STUFF = set(HARD_PUNCT + PUNCT + PUNCT_TOKENS + NEGATIONS)
+
     def __init__(self, distance_weight=0.9, negation_weight=-0.5, cutoff=0.1):
         """
         Create a reader that reads English text using `simplenlp`. You can
@@ -79,13 +88,35 @@ class SimpleNLPEnglishReader(TextReader):
         self.distance_weight = distance_weight
         self.cutoff = cutoff
 
-    def tokenize(self, text):
+    def extract_tokens(self, text):
         """
         Return a list of the (lemmatized, non-stopword) tokens that appear in
         the text.
         """
         spaced = self.nl.lemma_split(text)[0]
         return spaced.split()
+    
+    def tokenize(self, text):
+        """
+        Simply tokenize the text, without dealing with stopwords.
+        """
+        return self.nl.tokenize(text).split()
+
+    def untokenize(self, tokens):
+        """
+        Given a list of tokens, re-assemble them into a phrase.
+        """
+        spaced = ' '.join(tokens)
+        return self.nl.untokenize(spaced)
+
+    def is_normal_word(self, token):
+        """
+        Classify a token very generally as "normal" or "abnormal". When
+        outputting phrases, we want them to begin and end with normal
+        tokens.
+        """
+        return (token and (token not in self.__class__.SPECIAL_STUFF)
+                      and (token[0] not in self.__class__.PUNCT))
     
     def _attenuate(self, memory):
         """
@@ -109,7 +140,7 @@ class SimpleNLPEnglishReader(TextReader):
         """
         cls = self.__class__             # convenient shorthand
         
-        tokens = self.tokenize(text)
+        tokens = self.extract_tokens(text)
         
         weight = 1.0
         memory = []
@@ -153,6 +184,22 @@ class SimpleNLPEnglishReader(TextReader):
                         # itself, in addition to previous terms.
                         # Is this the right way to do that?
                         yield (weight*prev_weight, prev, term)
+    
+    def extract_term_texts(self, text):
+        """
+        Yield tuples of (term, phrase), showing the original text that
+        various terms came from.
+        """
+        tokens = self.tokenize(text)
+        for window in xrange(1, 5):
+            for left in xrange(len(tokens) - window + 1):
+                right = left + window
+                if (self.is_normal_word(tokens[left]) and
+                    self.is_normal_word(tokens[right-1])):
+                    phrase = self.untokenize(tokens[left:right])
+                    term = self.nl.lemma_split(phrase)[0]
+                    yield (term, phrase)
+
     
 def parse_tag(token):
     """

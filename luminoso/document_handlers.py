@@ -13,6 +13,17 @@ except ImportError:
 import logging
 LOG = logging.getLogger(__name__)
 
+def ensure_unicode(text):
+    """
+    Take in something. Make it Unicode.
+    """
+    if isinstance(text, unicode):
+        return text
+    elif isinstance(text, str):
+        return unicode(text, errors='replace')
+    else:
+        return unicode(text)
+
 def handle_text_file(filename, name=None):
     """
     Handle a file that we believe to contain plain text, in some reasonable
@@ -24,15 +35,15 @@ def handle_text_file(filename, name=None):
     rawtext.close()
 
     text = codecs.open(filename, encoding=encoding, errors='replace').read()
-    for result in handle_text(name or filename, text):
+    for result in handle_text(text, filename, name):
         yield result
 
-def handle_text(name, text):
+def handle_text(text, url, name=None):
     """
     Given plain text content, return it as a document dictionary.
     """
-    name = unicode(name, errors='replace')
-    yield dict(name=name, text=text)
+    name = ensure_unicode(name or os.path.basename(url))
+    yield {u'name': name, u'url': url, u'text': ensure_unicode(text)}
 
 def _check_document(document):
     """
@@ -40,7 +51,7 @@ def _check_document(document):
     expects.
     """
     return (isinstance(document, dict) and 
-            'name' in document and 'text' in document)
+            u'name' in document and u'text' in document)
 
 def handle_json_file(filename, name=None):
     """
@@ -61,13 +72,16 @@ def handle_json_obj(obj, url, name=None):
     The `url` parameter should contain a filename or URL to ensure that
     document names are not completely ambiguous.
     """
+    # TODO: split these cases into separate functions that are reusable
+    # (pylint has a valid complaint!)
     if isinstance(obj, basestring):
         fullname = url
         if name:
-            fullname = url + '#' + name
+            fullname = url + u'#' + name
         doc = {
-            'name': fullname,
-            'text': obj
+            u'url': fullname,
+            u'name': name,
+            u'text': obj
         }
         yield doc
     elif isinstance(obj, list):
@@ -76,12 +90,15 @@ def handle_json_obj(obj, url, name=None):
             for result in handle_json_obj(document, url):
                 yield result
     elif isinstance(obj, dict):
-        if 'text' in obj:
+        baseurl = os.path.dirname(url)
+        if u'text' in obj:
             # this is a single document on its own
-            obj['name'] = url + '#' + obj.get('name', name)
+            obj[u'url'] = url + u'#' + obj.get(u'name', name)
+            obj[u'name'] = obj.get(u'name', name)
             yield obj
-        elif 'url' in obj:
-            for result in handle_url(obj['url'], obj.get('name', name)):
+        elif u'url' in obj:
+            for result in handle_url(baseurl + os.path.sep + obj[u'url'],
+                                     obj.get(u'name', name)):
                 yield result
         else:
             # assume it's a dictionary mapping name -> document
@@ -107,11 +124,18 @@ def handle_url(url, name=None):
     TODO: handle schemas that aren't local files.
     """
     if os.access(url, os.F_OK):
-        if os.access(url+'/', os.F_OK): # it's a directory
+        if os.access(url+u'/', os.F_OK): # it's a directory
             for result in handle_directory(url):
                 yield result
-        elif url.endswith('.json') or url.endswith('.js'):
-            for result in handle_json_file:
+        elif url.endswith(u'.json') or url.endswith(u'.js'):
+            for result in handle_json_file(url):
+                yield result
+        else:
+            # assume text file
+            for result in handle_text_file(url):
                 yield result
     else:
-        LOG.warn("could not open %r#%r")
+        if name:
+            LOG.warn("could not open %r#%r" % (url, name))
+        else:
+            LOG.warn("could not open %r" % url)
