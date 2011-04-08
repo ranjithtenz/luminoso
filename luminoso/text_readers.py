@@ -5,6 +5,8 @@ and return word associations. Which reader to use depends on the complexity
 of the task and what language the text is in.
 """
 from simplenlp import get_nl
+import logging
+LOG = logging.getLogger(__name__)
 
 # TODO:
 # - Handle situations that aren't just about discovering terms. (Negations,
@@ -177,6 +179,7 @@ class SimpleNLPEnglishReader(TextReader):
                     for term in active_terms:
                         yield (weight, DOCUMENT, term)
                         memory.append([term, weight])
+                    prev_token = token
 
                 for term in active_terms:
                     for prev, prev_weight in memory:
