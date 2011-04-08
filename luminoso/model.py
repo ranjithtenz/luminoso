@@ -12,6 +12,7 @@ Overall design:
 
 from __future__ import with_statement   # for Python 2.5 support
 import divisi2
+from divisi2.fileIO import load_pickle, save_pickle
 from divisi2.reconstructed import ReconstructedMatrix
 from divisi2.ordered_set import PrioritySet
 from luminoso.term_database import TermDatabase, _BIG
@@ -85,7 +86,9 @@ class LuminosoModel(object):
     def _load_assoc(self):
         "Load the association matrix and priority queue from a file."
         if self.file_exists_in_dir('associations.rmat'):
-            self.assoc = divisi2.load(self.filename_in_dir('associations.rmat'))
+            self.assoc = load_pickle(
+                self.filename_in_dir('associations.rmat')
+            )
             assert isinstance(self.assoc, ReconstructedMatrix)
         else:
             raise IOError("This LuminosoModel does not have an "
@@ -106,7 +109,7 @@ class LuminosoModel(object):
 
     def save_assoc(self):
         "Save the association matrix to a file."
-        divisi2.save(self.assoc, self.filename_in_dir('associations.rmat'))
+        save_pickle(self.assoc, self.filename_in_dir('associations.rmat'))
     
     def on_drop(self, index, key):
         """
@@ -182,7 +185,7 @@ class LuminosoModel(object):
         """
         os.mkdir(model_dir)
         rmat_file = model_dir + os.sep + 'associations.rmat'
-        divisi2.save(rmat_file, rmat)
+        save_pickle(rmat, rmat_file)
         return LuminosoModel(model_dir)
 
     @staticmethod
