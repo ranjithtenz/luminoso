@@ -113,9 +113,9 @@ def handle_directory(dirname):
     """
     Handle a directory and get a stream of documents out of it.
     """
-    for file in os.listdir(dirname):
-        if not file.startswith('.'):
-            for result in handle_url(dirname+os.sep+file):
+    for filename in os.listdir(dirname):
+        if not filename.startswith('.'):
+            for result in handle_url(dirname+os.sep+filename):
                 yield result
 
 def handle_url(url, name=None):

@@ -151,8 +151,8 @@ class Document(Base):
     reader = Column(String, nullable=False)
     text = Column(Text, nullable=False)
 
-    def __init__(self, id, name, reader, text):
-        self.id = id
+    def __init__(self, docid, name, reader, text):
+        self.id = docid
         self.name = name
         self.reader = reader
         self.text = text
@@ -459,6 +459,9 @@ class TermDatabase(object):
         return self.count_term_distinct_documents(ANY)
     
     def list_documents(self):
+        """
+        Get a list of all the document IDs stored in the database.
+        """
         return [item[0] for item in
                 self.sql_session.query(Document).values(Document.id)]
     

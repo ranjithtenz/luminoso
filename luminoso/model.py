@@ -200,7 +200,7 @@ class LuminosoModel(object):
                 raise ValueError("num_concepts is too small to fit the "
                                  "existing concepts.")
             cols_to_copy = min(cols, orig_dmat.left.shape[1])
-            dmat[:rows_to_copy, :cols_to_copy] =\
+            dmat[:rows_to_copy, :cols_to_copy] = \
               orig_dmat[:rows_to_copy, :cols_to_copy]
             dmat.row_labels = orig_dmat.row_labels
         else:
@@ -219,7 +219,7 @@ class LuminosoModel(object):
         """
         if config is None:
             config = _default_config()
-        mat = divisi2.DenseMatrix((config['num_concepts'], config['num_axes']))        
+        mat = divisi2.DenseMatrix((config['num_concepts'], config['num_axes']))
         model = LuminosoModel.make(model_dir, mat, config)
         return model
 
