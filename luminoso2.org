@@ -5,27 +5,32 @@ have various features for keeping track of things like to-do lists. Orgmode is
 available as a plugin for Emacs, Sublime Text 2 (which I use), and possibly
 for vim.
 
-* Design plans [0/7]
-  - [ ] New "LuminosoModel" that can be incrementally trained [1/6]
+* Design plans [0/9]
+  - [ ] New "LuminosoModel" that can be incrementally trained [2/5]
     - [ ] Figure out {{rough incremental blending}}
     - [X] Look into normalization
     - [ ] Test basic association
-    - [ ] Test tags
-    - [ ] Converter from previous study
+    - [X] Test tags
     - [ ] Document
 
-  - [ ] LuminosoStudies on top of LuminosoModels [0/6]
+  - [ ] LuminosoStudies on top of LuminosoModels [0/7]
     - [ ] Discover from filesystem
     - [ ] Look into chi-squared correlation
     - [ ] Centrality
     - [ ] Interesting concepts (make more interesting)
     - [ ] Tag prediction (classification, as in SVM)
+    - [ ] Converter from previous study
     - [ ] Document these
+  
+  - [ ] Configurability [0/3]
+    - [ ] Change parameters after creating a study
+    - [ ] Add new stopwords or autocorrections
+    - [ ] Add new document handlers
 
-  - [ ] A variety of possible data sources [2/8]
+  - [ ] A variety of possible data sources [2/7]
     - [X] Text files
     - [X] JSON
-    - [ ] PDF/Word/HTML
+          PDF/Word/HTML: needs to be separate
     - [ ] SQL
     - [ ] Mongo
     - [ ] RSS/Atom feeds
@@ -37,6 +42,8 @@ for vim.
     - [ ] simplenlp, Japanese
     - [ ] Dependency parser
     - [ ] Document these
+  
+  - [ ] Transitional PyQt interface
 
   - [ ] HTML/JS interface (job for a UROP?) [0/4]
     - [ ] Some interface for choosing data sources (could be messy!)
@@ -52,7 +59,7 @@ for vim.
     - [ ] Use SVC (or something?) to determine unknown labels
     - [ ] Document
 
-  - Visualization [0/2]
+  - [ ] Visualization [0/2]
     - [ ] New "fisheye" visualizer (Birago?)
     - [ ] different views like MDS
 

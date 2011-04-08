@@ -15,6 +15,13 @@ LOG = logging.getLogger(__name__)
 DOCUMENT = u'*Document*'
 TAG = u'*Tag*'
 
+def is_tag(token):
+    """
+    Is this a token that represents a tag?
+    """
+    return (token.startswith(u'#') or token.startswith(u'+') or
+            token.startswith(u'-')) and len(token) > 2
+
 class TextReader(object):
     """
     An abstract class showing the interface that TextReaders must implement.
@@ -62,11 +69,11 @@ class SimpleNLPEnglishReader(TextReader):
 
     # punctuation characters that end a negative context; tokens that begin
     # with one of these such as "..." or "?!" count as well.
-    PUNCT = [u'.', u'?', u'!', u':', u'…', u'-', u'—']
+    PUNCT = [u'.', u'?', u'!', u':', u'…', u'—']
 
     # punctuation that has to appear as the entire token to count
     # (so we don't accidentally treat "'s" as punctuation, for example)
-    PUNCT_TOKENS = [u"''", u"``", u"'", u"`", u":", u";"]
+    PUNCT_TOKENS = [u"''", u"``", u"'", u"`", u":", u";", u'-', u'--', u'---']
 
     # words that flips the context from positive to negative
     NEGATIONS = [u'no', u'not', u'never', u'stop', u'lack',
@@ -95,8 +102,16 @@ class SimpleNLPEnglishReader(TextReader):
         Return a list of the (lemmatized, non-stopword) tokens that appear in
         the text.
         """
-        spaced = self.nl.lemma_split(text)[0]
-        return spaced.split()
+        tokens = self.tokenize(text)
+        tokens_out = []
+        for token in tokens:
+            if is_tag(token):
+                tokens_out.append(token)
+            elif self.nl.is_stopword(token):
+                pass
+            else:
+                tokens_out.extend(self.tokenize(self.nl.normalize(token)))
+        return tokens_out
     
     def tokenize(self, text):
         """
@@ -164,9 +179,7 @@ class SimpleNLPEnglishReader(TextReader):
                     prev_token = None
                 elif token in cls.EXTRA_STOPWORDS:
                     continue
-                elif (token.startswith(u'#') or token.startswith(u'+') or
-                      token.startswith(u'-')) and len(token) > 2:
-                    # it's a tag
+                elif is_tag(token):
                     tag = parse_tag(token)
                     yield (0, DOCUMENT, tag)
                     prev_token = None
@@ -214,7 +227,7 @@ def parse_tag(token):
     """
     if token.startswith(u'#'):
         if u'=' in token:
-            key, value = token.split(u'=', 1)
+            key, value = token[1:].split(u'=', 1)
             # handle numeric values
             try:
                 value = float(value)

@@ -299,8 +299,7 @@ class TermDatabase(object):
             for left in xrange(len(tokens) - window + 1):
                 right = left + window
                 phrase = reader.untokenize(tokens[left:right])
-
-   
+    
     def add_document(self, doc_info):
         """
         Record the terms in a document in the database. If the database already
@@ -337,11 +336,22 @@ class TermDatabase(object):
         self.sql_session.add(doc)
         self.commit()
 
-    def get_document(self, docname):
+    def get_document(self, docid):
         """
-        Get a Document from the database by its name.
+        Get a Document from the database by its ID (URL).
         """
-        return self.sql_session.query(Document).get(docname)
+        return self.sql_session.query(Document).get(docid)
+    
+    def get_document_tags(self, docid):
+        """
+        Get a list of (key, value) pairs representing all the tags on this
+        document.
+        """
+        return [(key, json.loads(value))
+                for key, value
+                in self.sql_session.query(Feature)
+                       .filter(Feature.document == docid)
+                       .values(Feature.key, Feature.value)]
 
     def _clear_document(self, document):
         """
