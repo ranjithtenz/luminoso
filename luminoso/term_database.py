@@ -43,7 +43,7 @@ def bigram_likelihood_ratio(n_12, n_1, n_2, n):
     n_o2 = n_2 - n_12
     n_1o = n_1 - n_12
     n_oo = n - n_12 - n_1o - n_o2
-    contingency = [n_12, n_o2, n_1o, n_oo]
+    contingency = [n_12+1, n_o2+1, n_1o+1, n_oo+1]
     expected = _expected_values(contingency)
 
     # the magic formula from NLTK
@@ -229,9 +229,9 @@ class TermDatabase(object):
             return self.set_tag_on_document(document, term[1], term[2])
         newdoc = self._increment_term_document_count(document, term, value)
         absv = abs(value)
-        self._increment_term_count(term, newdoc, absv)
+        self._increment_term_count(term, absv, newdoc)
         newdoc_any = self._increment_term_document_count(document, ANY, absv)
-        self._increment_term_count(ANY, newdoc_any, absv)
+        self._increment_term_count(ANY, absv, newdoc_any)
         self._update_term_relevance(term)
     
     def set_tag_on_document(self, document, key, value):
@@ -320,7 +320,7 @@ class TermDatabase(object):
             if doc.text == text and doc.reader == reader_name:
                 # nothing has changed, so return
                 return
-            self._clear_document(docname)
+            self._clear_document(docid)
         
         for term in terms:
             if isinstance(term, tuple):
@@ -328,10 +328,10 @@ class TermDatabase(object):
                 term, value = term
             else:
                 value = 1
-            self.increment_term_in_document(docname, term, value)
+            self.increment_term_in_document(docid, term, value)
 
         for key, value in doc_info.get('tags', []):
-            self.set_tag_on_document(docname, key, value)
+            self.set_tag_on_document(docid, key, value)
         
         doc = Document(docid, docname, reader_name, text)
         self.sql_session.add(doc)
