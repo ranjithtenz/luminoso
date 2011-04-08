@@ -16,7 +16,7 @@ from divisi2.fileIO import load_pickle, save_pickle
 from divisi2.reconstructed import ReconstructedMatrix
 from divisi2.ordered_set import PrioritySet
 from luminoso.term_database import TermDatabase, _BIG
-from luminoso.text_readers import get_reader, DOCUMENT
+from luminoso.text_readers import get_reader, DOCUMENT, TAG
 import os
 from config import Config
 import logging
@@ -99,9 +99,10 @@ class LuminosoModel(object):
             # turn an ordinary ReconstructedMatrix into one that has
             # PrioritySets for indices
             priority = PrioritySet(self.config['num_concepts'])
-            items = self.assoc.row_labels
-            item_tuples = zip(items, [_BIG] * len(items))
-            priority.load_items(item_tuples)
+            if self.assoc.row_labels is not None:
+                items = self.assoc.row_labels
+                item_tuples = zip(items, [_BIG] * len(items))
+                priority.load_items(item_tuples)
             self.assoc.set_symmetric_labels(priority)
 
         self.priority = self.assoc.row_labels
@@ -139,16 +140,21 @@ class LuminosoModel(object):
             reader_name = self.config['reader']
         reader = get_reader(reader_name)
         text = doc['text']
+        tags = doc.get('tags', [])
         doc_terms = []
         for weight, term1, term2 in reader.extract_connections(text):
             if term1 == DOCUMENT:
-                doc_terms.append((term2, weight))
-                relevance = self.database.term_relevance(term2)
-                self.priority.add(term2)
-                self.priority.update(term2, relevance)
+                if isinstance(term2, tuple) and term2[0] == TAG:
+                    tags.append(term2[1:])
+                else:
+                    doc_terms.append((term2, weight))
+                    relevance = self.database.term_relevance(term2)
+                    self.priority.add(term2)
+                    self.priority.update(term2, relevance)
 
         doc['reader'] = reader_name
         doc['terms'] = doc_terms
+        doc['tags'] = tags
         self.database.add_document(doc)
         self.database.find_term_texts(text, reader)
 
@@ -178,11 +184,29 @@ class LuminosoModel(object):
         return "<LuminosoModel: %r>" % self.dir
 
     @staticmethod
-    def make(model_dir, rmat):
+    def make(model_dir, orig_dmat, config):
         """
         Make a new LuminosoModel in the (nonexistent) directory `dir`,
-        with initial association matrix `rmat`.
+        with initial half-association matrix `orig_dmat`. (A half-association
+        matrix is a matrix that gives an association matrix when it is
+        multiplied by its transpose.)
         """
+        rows = config['num_concepts']
+        cols = config['num_axes']
+        if orig_dmat.shape != (rows, cols):
+            dmat = divisi2.DenseMatrix((rows, cols))
+            rows_to_copy = orig_dmat.left.shape[0]
+            if rows < rows_to_copy:
+                raise ValueError("num_concepts is too small to fit the "
+                                 "existing concepts.")
+            cols_to_copy = min(cols, orig_dmat.left.shape[1])
+            dmat[:rows_to_copy, :cols_to_copy] =\
+              orig_dmat[:rows_to_copy, :cols_to_copy]
+            dmat.row_labels = orig_dmat.row_labels
+        else:
+            dmat = orig_dmat
+        
+        rmat = divisi2.reconstruct_symmetric(dmat)
         os.mkdir(model_dir)
         rmat_file = model_dir + os.sep + 'associations.rmat'
         save_pickle(rmat, rmat_file)
@@ -195,17 +219,17 @@ class LuminosoModel(object):
         """
         if config is None:
             config = _default_config()
-        mat = divisi2.DenseMatrix((config['num_concepts'], config['num_axes']))
-        rmat = divisi2.reconstruct_symmetric(mat)
-        rmat.set_symmetric_labels(PrioritySet(config['num_concepts']))
-        
-        return LuminosoModel.make(model_dir, rmat)
+        mat = divisi2.DenseMatrix((config['num_concepts'], config['num_axes']))        
+        model = LuminosoModel.make(model_dir, mat, config)
+        return model
 
     @staticmethod
-    def make_english(model_dir):
+    def make_english(model_dir, config=None):
         """
         Make a LuminosoModel whose initial matrix contains English common sense.
         """
+        if config is None:
+            config = _default_config()
         if os.access(model_dir, os.F_OK):
             raise IOError("The model directory %r already exists." % model_dir)
         assoc = divisi2.network.conceptnet_assoc('en')
@@ -213,8 +237,7 @@ class LuminosoModel(object):
         rmat = divisi2.reconstruct_activation(
             mat_U, diag_S, post_normalize=True
         )
-        rmat.make_symmetric()
-        model = LuminosoModel.make(model_dir, rmat)
+        model = LuminosoModel.make(model_dir, rmat.left, config)
         model.config['iteration'] = 1000
         return model
 
