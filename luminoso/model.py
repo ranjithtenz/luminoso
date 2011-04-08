@@ -95,15 +95,7 @@ class LuminosoModel(object):
                           "'associations.rmat' file. Use LuminosoModel.make() "
                           "to make a valid LuminosoModel.")
         self.assoc.make_symmetric()
-        if not isinstance(self.assoc.row_labels, PrioritySet):
-            # turn an ordinary ReconstructedMatrix into one that has
-            # PrioritySets for indices
-            priority = PrioritySet(self.config['num_concepts'])
-            if self.assoc.row_labels is not None:
-                items = self.assoc.row_labels
-                item_tuples = zip(items, [_BIG] * len(items))
-                priority.load_items(item_tuples)
-            self.assoc.set_symmetric_labels(priority)
+        assert isinstance(self.assoc.row_labels, PrioritySet)
 
         self.priority = self.assoc.row_labels
         self.priority.listen_for_drops(self.on_drop)
@@ -195,17 +187,18 @@ class LuminosoModel(object):
         cols = config['num_axes']
         if orig_dmat.shape != (rows, cols):
             dmat = divisi2.DenseMatrix((rows, cols))
-            rows_to_copy = orig_dmat.left.shape[0]
+            rows_to_copy = orig_dmat.shape[0]
             if rows < rows_to_copy:
                 raise ValueError("num_concepts is too small to fit the "
                                  "existing concepts.")
-            cols_to_copy = min(cols, orig_dmat.left.shape[1])
+            cols_to_copy = min(cols, orig_dmat.shape[1])
             dmat[:rows_to_copy, :cols_to_copy] = \
               orig_dmat[:rows_to_copy, :cols_to_copy]
             dmat.row_labels = orig_dmat.row_labels
         else:
             dmat = orig_dmat
         
+        _prioritize_labels(dmat, rows)    
         rmat = divisi2.reconstruct_symmetric(dmat)
         os.mkdir(model_dir)
         rmat_file = model_dir + os.sep + 'associations.rmat'
@@ -251,3 +244,17 @@ def _default_config():
     config['iteration'] = 0
     return config
 
+def _prioritize_labels(mat, num_concepts):
+    """
+    Ensure that a dense matrix has a PrioritySet for its row labels.
+    """
+    if not isinstance(mat.row_labels, PrioritySet):
+        # turn an ordinary matrix into one that has a
+        # PrioritySet for row indices
+        priority = PrioritySet(num_concepts)
+        if mat.row_labels is not None:
+            items = mat.row_labels
+            item_tuples = zip(items, [_BIG] * len(items))
+            priority.load_items(item_tuples)
+        mat.row_labels = priority
+    return mat

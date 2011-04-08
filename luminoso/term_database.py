@@ -17,6 +17,9 @@ try:
     import json
 except ImportError:
     import simplejson as json
+import logging
+LOG = logging.getLogger(__name__)
+
 
 def _expected_values(cont):
     """
@@ -270,10 +273,11 @@ class TermDatabase(object):
         iterating over the PrioritySet.
         """
         term_entry = self.sql_session.query(Term).get(term)
-        if term_entry:
-            term_entry.priority_index = index
-        else:
-            raise KeyError("Term %r is not in the database" % term)
+        if not term_entry:
+            LOG.info("adding missing term %r" % term)
+            term_entry = Term(term, 0, 0, 0)
+            self.sql_session.add(term_entry)
+        term_entry.priority_index = index
         
     def clear_term_priority_index(self, term):
         """
@@ -283,7 +287,8 @@ class TermDatabase(object):
         if term_entry:
             term_entry.priority_index = None
         else:
-            raise KeyError("Term %r is not in the database" % term)
+            LOG.info("asked to demote term %r, but I've never heard of it "
+                     "in the first place" % term)
     
     def find_term_texts(self, text, reader):
         """

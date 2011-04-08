@@ -13,7 +13,6 @@ def teardown_module():
     shutil.rmtree(TEMPDIR)
 
 def test_increment():
-    print TEMPDIR
     themodel = LuminosoModel.make_empty(TEMPDIR+'/test_increment')
     newdoc = themodel.database._increment_term_document_count('#test1', '*')
     assert newdoc
