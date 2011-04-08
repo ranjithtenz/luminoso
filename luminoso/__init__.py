@@ -8,13 +8,8 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 # suppress warnings internal to PyLint
 warnings.simplefilter("ignore")
-
-def make_english(model_dir):
-    """
-    A shortcut to make a new study, trained on English-language common sense,
-    in the given directory (which must not already exist).
-    """
-    return LuminosoModel.make_english(model_dir)
+make_english = LuminosoModel.make_english
+make_empty = LuminosoModel.make_empty
 
 def load(model_dir):
     """

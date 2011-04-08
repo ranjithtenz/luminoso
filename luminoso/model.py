@@ -190,6 +190,9 @@ class LuminosoModel(object):
 
     @staticmethod
     def make_empty(model_dir, config=None):
+        """
+        Make a LuminosoModel that starts from an empty matrix.
+        """
         if config is None:
             config = _default_config()
         mat = divisi2.DenseMatrix((config['num_concepts'], config['num_axes']))
