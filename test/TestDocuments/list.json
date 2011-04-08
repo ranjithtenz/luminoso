@@ -1,3 +1,7 @@
 [{"name": "Entry 1", "text": "one two three"},
  {"name": "Entry 2", "text": "two three four"},
- {"name": "Entry 3", "url": "../MoreTestDocuments/relative.txt"}]
+ {"name": "Entry 3", "url": "../MoreTestDocuments/relative.txt"},
+ {"name": "Entry 4", "url": "../MoreTestDocuments/relative2.json"},
+ {"small entry": "small", "another entry": "another"},
+ {"name": "Missing document", "url": "IDoNotExist"},
+ {"url": "IDoNotExist/either.txt"}]

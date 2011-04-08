@@ -2,6 +2,9 @@
 A document handler is the step before a TextReader: it takes in some source of
 raw data, and yields dictionaries representing individual documents. A
 TextReader can then scan these for terms and tags.
+
+Document handlers are not currently pluggable; they are top-level functions.
+The job of `handle_url` is to dispatch to the appropriate function.
 """
 import chardet
 import codecs
@@ -75,12 +78,9 @@ def handle_json_obj(obj, url, name=None):
     # TODO: split these cases into separate functions that are reusable
     # (pylint has a valid complaint!)
     if isinstance(obj, basestring):
-        fullname = url
-        if name:
-            fullname = url + u'#' + name
         doc = {
-            u'url': fullname,
-            u'name': name,
+            u'url': url,
+            u'name': name or os.path.basename(url),
             u'text': obj
         }
         yield doc
@@ -103,7 +103,8 @@ def handle_json_obj(obj, url, name=None):
         else:
             # assume it's a dictionary mapping name -> document
             for newname, document in obj.items():
-                for result in handle_json_obj(document, url, newname):
+                fullurl = url + '#' + newname
+                for result in handle_json_obj(document, fullurl, newname):
                     yield result
     else:
         LOG.warn("could not find a valid document in %r#%r" % (url, name))
@@ -128,11 +129,11 @@ def handle_url(url, name=None):
             for result in handle_directory(url):
                 yield result
         elif url.endswith(u'.json') or url.endswith(u'.js'):
-            for result in handle_json_file(url):
+            for result in handle_json_file(url, name):
                 yield result
         else:
             # assume text file
-            for result in handle_text_file(url):
+            for result in handle_text_file(url, name):
                 yield result
     else:
         if name:
