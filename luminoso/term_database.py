@@ -158,7 +158,7 @@ class Document(Base):
         self.text = text
     
     def __repr__(self):
-        return "<Document [%s]: %r from %r>" % (self.reader, self.id, self.name)
+        return "<Document %r: %r [%s]>" % (self.id, self.name, self.reader)
 
 #class GlobalData(Base):
 #    __tablename__ = 'global_data'
@@ -311,10 +311,11 @@ class TermDatabase(object):
         `reader_name` indicates which reader was used.
         """
         docname = doc_info[u'name']
+        docid = doc_info[u'url']
         terms = doc_info[u'terms']
         text = doc_info[u'text']
         reader_name = doc_info[u'reader']
-        doc = self.sql_session.query(Document).get(docname)
+        doc = self.sql_session.query(Document).get(docid)
         if doc is not None:
             if doc.text == text and doc.reader == reader_name:
                 # nothing has changed, so return
@@ -329,10 +330,10 @@ class TermDatabase(object):
                 value = 1
             self.increment_term_in_document(docname, term, value)
 
-        for key, value in doc.get('tags', []):
+        for key, value in doc_info.get('tags', []):
             self.set_tag_on_document(docname, key, value)
         
-        doc = Document(docname, reader_name, text)
+        doc = Document(docid, docname, reader_name, text)
         self.sql_session.add(doc)
         self.commit()
 
@@ -356,6 +357,8 @@ class TermDatabase(object):
             term_entry.count -= count
             term_entry.distinct_docs -= 1
             row.delete()
+        any_term = self.sql_session.query(Term).get(ANY)
+        any_term.distinct_docs -= 1
         doc.delete()
     
     def clear_document(self, document):
@@ -445,6 +448,10 @@ class TermDatabase(object):
         """
         return self.count_term_distinct_documents(ANY)
     
+    def list_documents(self):
+        return [item[0] for item in
+                self.sql_session.query(Document).values(Document.id)]
+    
     #def set_global(self, key, value):
     #    global_entry = self.sql_session.query(GlobalData).get(key)
     #    if global_entry:
@@ -471,7 +478,7 @@ class TermDatabase(object):
     def tfidf_term_in_document(self, term, document):
         """
         Calculate the TF-IDF (Term Frequency by Inverse Document Frequency)
-        value for a given term in a given document. This expresses
+        value for a given term in a given document.
         """
         tf = self.count_term_in_document(term, document)\
            / self.count_term_in_document(ANY, document)
