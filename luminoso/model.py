@@ -17,6 +17,7 @@ from divisi2.reconstructed import ReconstructedMatrix
 from divisi2.ordered_set import PrioritySet
 from luminoso.term_database import TermDatabase, _BIG
 from luminoso.text_readers import get_reader, DOCUMENT, TAG
+from luminoso.document_handlers import handle_url
 import os
 from config import Config
 import logging
@@ -149,12 +150,14 @@ class LuminosoModel(object):
         doc['tags'] = tags
         self.database.add_document(doc)
         self.database.find_term_texts(text, reader)
-
+        return doc['url']
+    
     def learn_document(self, docid):
         """
         Given a previously added document, use it to update the association
         matrix. This can be repeated to increase accuracy.
         """
+        LOG.info("Learning from: %r" % docid)
         doc = self.database.get_document(docid)
         reader = get_reader(doc.reader)
         for weight, term1, term2 in reader.extract_connections(doc.text):
@@ -171,6 +174,26 @@ class LuminosoModel(object):
         self.database.set_term_priority_index(term2, col)
         mse = self.assoc.hebbian_step(row, col, weight)
         return mse
+
+    def learn_from_url(self, url, study=None):
+        """
+        Given a URL or file path that points to a collection of documents,
+        learn from all of those documents. They may also be added to a
+        study at the same time.
+        """
+        self.add_from_url(url, study, learn=True)
+
+    def add_from_url(self, url, study=None, learn=False):
+        """
+        Given a URL or file path that points to a collection of documents,
+        add all the documents to the database. By default `learn`=False, so
+        the concept model will not change. When `learn`=True, this 
+        implements `learn_from_url`.
+        """
+        for doc in handle_url(url):
+            docid = self.add_document(doc)
+            if learn:
+                self.learn_document(docid)
 
     def __repr__(self):
         return "<LuminosoModel: %r>" % self.dir
