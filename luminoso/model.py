@@ -237,7 +237,6 @@ class LuminosoModel(object):
 def _default_config():
     "The default configuration for new studies."
     config = Config()
-    # FIXME: so far we just assume that these will match the initial rmat
     config['num_concepts'] = 50000
     config['num_axes'] = 100
     config['reader'] = 'simplenlp.en'
