@@ -35,7 +35,9 @@ def handle_text_file(filename, name=None):
     not yet implement, such as EUC-TW.
     """
     # open the raw text first, to determine its encoding
-    rawtext = open(filename, 'rb').read()
+    f = open(filename, 'rb')
+    rawtext = f.read()
+    f.close()
     encoding = chardet.detect(rawtext)['encoding']
     try:
         text = rawtext.decode(encoding, 'replace')
