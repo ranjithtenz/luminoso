@@ -44,8 +44,5 @@ def test_small():
     assert model.index_term('e', 0) == 0
     assert model.index_term('e', 0) == 0
     assert model.priority.items == ['e', 'd', 'c']
-    assert model.database.index_for_term('e') == 0
-    assert model.database.index_for_term('d') == 1
-    assert model.database.index_for_term('c') == 2
 
 

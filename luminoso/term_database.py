@@ -74,18 +74,14 @@ class Term(Base):
     term = Column(String, primary_key=True)
     fulltext = Column(String, nullable=True)
     count = Column(Float, nullable=False)
-    words = Column(Integer, nullable=False)
-    relevance = Column(Float, nullable=False, index=True)
     distinct_docs = Column(Integer, nullable=False)
-    priority_index = Column(Integer, nullable=True, index=True)
+    relevance = Column(Float, nullable=False, index=True)
 
     def __init__(self, term, count, distinct_docs, relevance):
         self.term = term
         self.count = count
         self.distinct_docs = distinct_docs
-        self.words = len(term.split())
         self.relevance = relevance
-        self.priority_index = None
     
     def __repr__(self):
         return "<%r, %d occurrences in %d documents>" % (self.term,
@@ -266,30 +262,6 @@ class TermDatabase(object):
         if term_entry:
             term_entry.fulltext = fulltext
 
-    def set_term_priority_index(self, term, index):
-        """
-        Remember the index number of a term in a PrioritySet, so
-        that we can extract important terms with a JOIN instead of by
-        iterating over the PrioritySet.
-        """
-        term_entry = self.sql_session.query(Term).get(term)
-        if not term_entry:
-            LOG.info("adding missing term %r" % term)
-            term_entry = Term(term, 0, 0, 0)
-            self.sql_session.add(term_entry)
-        term_entry.priority_index = index
-        
-    def clear_term_priority_index(self, term):
-        """
-        Record the fact that a term has dropped out of a PrioritySet.
-        """
-        term_entry = self.sql_session.query(Term).get(term)
-        if term_entry:
-            term_entry.priority_index = None
-        else:
-            LOG.info("asked to demote term %r, but I've never heard of it "
-                     "in the first place" % term)
-    
     def find_term_texts(self, text, reader):
         """
         Given a text and the reader to read it with, record which
@@ -384,17 +356,6 @@ class TermDatabase(object):
         self._clear_document(document)
         self.commit()
     
-    def index_for_term(self, term):
-        """
-        Returns the saved index number for this term, or None if the term
-        is not important enough to index.
-        """
-        term_entry = self.sql_session.query(Term).get(term)
-        if term_entry:
-            return term_entry.priority_index
-        else:
-            return None
-
     def count_term(self, term):
         """
         Returns the number of times we have seen this term.
