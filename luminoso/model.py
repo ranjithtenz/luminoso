@@ -75,20 +75,17 @@ class LuminosoModel(object):
               open(self.filename_in_dir(LuminosoModel.CONFIG_FILENAME))
             )
         else:
-            self.config = _default_config()
-            self.save_config()
+            raise IOError("This model is missing a config file.")
 
     def save_config(self):
         "Save the current configuration to the configuration file."
-        out = open(self.filename_in_dir(LuminosoModel.CONFIG_FILENAME), 'w')
-        self.config.save(out)
-        out.close()
+        LuminosoModel._save_config_object(self.config)
 
     def _load_assoc(self):
         "Load the association matrix and priority queue from a file."
-        if self.file_exists_in_dir('associations.rmat'):
+        if self.file_exists_in_dir(LuminosoModel.ASSOC_FILENAME):
             self.assoc = load_pickle(
-                self.filename_in_dir('associations.rmat')
+                self.filename_in_dir(LuminosoModel.ASSOC_FILENAME)
             )
             assert isinstance(self.assoc, ReconstructedMatrix)
         else:
@@ -103,7 +100,8 @@ class LuminosoModel(object):
 
     def save_assoc(self):
         "Save the association matrix to a file."
-        save_pickle(self.assoc, self.filename_in_dir('associations.rmat'))
+        save_pickle(self.assoc, 
+                    self.filename_in_dir(LuminosoModel.ASSOC_FILENAME))
     
     def on_drop(self, index, key):
         """
@@ -206,6 +204,7 @@ class LuminosoModel(object):
         matrix is a matrix that gives an association matrix when it is
         multiplied by its transpose.)
         """
+        # Adjust the size of the matrix to match the config, if necessary.
         rows = config['num_concepts']
         cols = config['num_axes']
         if orig_dmat.shape != (rows, cols):
@@ -221,12 +220,20 @@ class LuminosoModel(object):
         else:
             dmat = orig_dmat
         
+        # Make sure that the matrix has a PrioritySet for its row labels.
         _prioritize_labels(dmat, rows)    
         rmat = divisi2.reconstruct_symmetric(dmat)
+
+        # Make the model directory and populate its initial files.
         os.mkdir(model_dir)
-        rmat_file = model_dir + os.sep + 'associations.rmat'
+        rmat_file = model_dir + os.sep + LuminosoModel.ASSOC_FILENAME
+        config_file = model_dir + os.sep + LuminosoModel.CONFIG_FILENAME
         save_pickle(rmat, rmat_file)
-        return LuminosoModel(model_dir)
+        save_config_file(config, config_file)
+
+        # Now load the model from that directory and return it.
+        model = LuminosoModel(model_dir)
+        return model
 
     @staticmethod
     def make_empty(model_dir, config=None):
@@ -280,3 +287,25 @@ def _prioritize_labels(mat, num_concepts):
             priority.load_items(item_tuples)
         mat.row_labels = priority
     return mat
+    
+def convert_config(config_dict):
+    """
+    Convert a dictionary to a Config object.
+    """
+    config = Config()
+    for key, value in config_dict.items():
+        config[key] = value
+    return config
+
+def save_config_file(config, filename):
+    """
+    Save a specified config object to a file. (This can be done before the
+    LuminosoModel instance exists, so it can be loaded with a valid
+    config.)
+    """
+    if not isinstance(config, Config):
+        config = convert_config(config)
+    out = open(filename, 'w')
+    config.save(out)
+    out.close()
+
