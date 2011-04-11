@@ -158,6 +158,7 @@ class LuminosoModel(object):
         reader = get_reader(doc.reader)
         for weight, term1, term2 in reader.extract_connections(doc.text):
             if term1 != DOCUMENT:
+                # FIXME: this doesn't use the TF-IDF weight
                 self.learn_assoc(weight, term1, term2)
     
     def index_term(self, term, priority=None):
@@ -199,9 +200,13 @@ class LuminosoModel(object):
         add all the documents to the database. By default `learn`=False, so
         the concept model will not change. When `learn`=True, this 
         implements `learn_from_url`.
+
+        This is the main loop that one should use to train a model.
         """
         for doc in handle_url(url):
             docid = self.add_document(doc)
+            if study is not None:
+                self.database.set_tag_on_document(docid, 'study', study)
             if learn:
                 self.learn_document(docid)
 

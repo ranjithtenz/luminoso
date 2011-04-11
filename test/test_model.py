@@ -4,7 +4,7 @@ import tempfile, shutil
 from nose.tools import assert_equal
 import logging
 logging.basicConfig()
-
+from luminoso.whereami import get_project_filename
 TEMPDIR = None
 
 def setup_module():
@@ -45,4 +45,19 @@ def test_small():
     assert model.index_term('e', 0) == 0
     assert model.priority.items == ['e', 'd', 'c']
 
-
+def test_read_from_url():
+    model = LuminosoModel.make_empty(
+        TEMPDIR + '/testdocs',
+        {
+            'num_concepts': 5,
+            'num_axes': 2,
+            'iteration': 0,
+            'reader': 'simplenlp.en'
+        }
+    )
+    model.learn_from_url(get_project_filename('test/TestDocuments'),
+                         study=u'test')
+    tags = model.database.get_document_tags(
+      get_project_filename('test/TestDocuments/happytest.txt')
+    )
+    assert tags == [(u'study', u'test')]
