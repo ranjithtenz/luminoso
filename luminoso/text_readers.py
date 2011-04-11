@@ -148,7 +148,7 @@ class SimpleNLPReader(TextReader):
         tokens = self.extract_tokens(text)
         if self.HEAD_DIRECTION == 'right':
             tokens.reverse()
-        
+        LOG.info(u' / '.join(tokens))
         weight = 1.0
         memory = []
         prev_token = None
@@ -250,7 +250,7 @@ class SimpleNLPJapaneseReader(SimpleNLPReader):
     """
     A SimpleNLPReader for handling Japanese text.
     """
-    HEAD_DIRECTION = 'left'
+    HEAD_DIRECTION = 'right'
 
     # Words that flip the context from positive to negative, to their *left*.
     NEGATIONS = [u'ない']
@@ -261,6 +261,11 @@ class SimpleNLPJapaneseReader(SimpleNLPReader):
                        u'で', u'か', u'ん', u'よう', u'ば', u'もの', u'くる',
                        u'なに', u'何', u'なん', u'た']
     
+    # Count は as a punctuation token. It's actually the topic marker, but
+    # the scope of a negation will rarely cross it.
+    PUNCT_TOKENS = [u"''", u"``", u"'", u"`", u":", u";", u'-', u'--', u'---',
+                    u"は"]
+
     def __init__(self, distance_weight=0.9, negation_weight=-0.5, cutoff=0.1):
         """
         Create a reader that reads English text using `simplenlp`. You can
@@ -275,8 +280,28 @@ class SimpleNLPJapaneseReader(SimpleNLPReader):
         """
         Simply tokenize the text, without dealing with stopwords.
         """
-        tokens = self.nl.tokenize_list(text)
-        return [tok for tok in tokens if not self.is_stopword(tok)]
+        return [str(tok).decode('utf-8') for tok in self.nl.tokenize_list(text)]
+
+    def extract_tokens(self, text):
+        """
+        Return a list of the (lemmatized, non-stopword) tokens that appear in
+        the text.
+        """
+        tokens = self.tokenize(text)
+        tokens_out = []
+        for token in tokens:
+            norm = self.nl.normalize(token)
+            if is_tag(token) or not self.is_normal_word(token):
+                tokens_out.append(token)
+            elif (self.nl.is_stopword(token) or
+                  self.nl.is_stopword(norm)):
+                pass
+            else:
+                tokens_out.extend([
+                    tok for tok in self.tokenize(norm)
+                    if tok != u'〜'
+                ])
+        return tokens_out
 
     def untokenize(self, tokens):
         """
