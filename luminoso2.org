@@ -38,9 +38,9 @@ for vim.
       - [ ] STOMP
     - [ ] Document these
 
-  - [ ] A variety of possible "readers" for text [1/4]
+  - [ ] A variety of possible "readers" for text [2/4]
     - [X] simplenlp, English
-    - [ ] simplenlp, Japanese
+    - [X] simplenlp, Japanese
     - [ ] Dependency parser
     - [ ] Document these
   

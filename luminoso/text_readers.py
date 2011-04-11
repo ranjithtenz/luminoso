@@ -26,8 +26,6 @@ class TextReader(object):
     """
     An abstract class showing the interface that TextReaders must implement.
     """
-    def __init__(self):
-        raise NotImplementedError("TextReader is an abstract class")
 
     def extract_connections(self, text):
         """
@@ -47,9 +45,9 @@ class TextReader(object):
         """
         raise NotImplementedError
 
-class SimpleNLPEnglishReader(TextReader):
+class SimpleNLPReader(TextReader):
     """
-    Uses simplenlp for handling English text.
+    An abstract class for readers that use simplenlp.
 
     The model of connections between words is one that decreases geometrically
     until a cutoff value. The default values allow for associations between
@@ -58,44 +56,37 @@ class SimpleNLPEnglishReader(TextReader):
     It also includes negative contexts. When one term in a pair appears in a
     negative context, the sign of the connection is flipped. The sign of the
     negated term's connection to the document is also flipped.
-
-    TODO: factor out common things into SimpleNLPReader.
     """
-    # this punctuation symbol marks the strongest possible division in a text,
-    # so that no word associations can occur across it. We intend for this
-    # to be inserted manually. For example, if two reviews from different
-    # people got concatenated, write "text of first review // text of second".
     HARD_PUNCT = [u'//']
 
-    # punctuation characters that end a negative context; tokens that begin
-    # with one of these such as "..." or "?!" count as well.
-    PUNCT = [u'.', u'?', u'!', u':', u'…', u'—']
+    # include English and Japanese punctuation mixed together
+    PUNCT = [u'.', u'?', u'!', u':', u'…', u'—', u'、', u'。',
+             u'「', u'」', u'『', u'』', u'【', u'】', u'〖', u'〗',
+             u'？', u'！']
 
     # punctuation that has to appear as the entire token to count
     # (so we don't accidentally treat "'s" as punctuation, for example)
     PUNCT_TOKENS = [u"''", u"``", u"'", u"`", u":", u";", u'-', u'--', u'---']
 
-    # words that flips the context from positive to negative
-    NEGATIONS = [u'no', u'not', u'never', u'stop', u'lack',
-                 u"n't", u'without']
-    
-    EXTRA_STOPWORDS = [
-        'also', 'not', 'without', 'ever', 'because', 'then', 
-        'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other'
-    ]
+    # These have to be language-specific
+    NEGATIONS = []
 
-    SPECIAL_STUFF = set(HARD_PUNCT + PUNCT + PUNCT_TOKENS + NEGATIONS)
+    EXTRA_STOPWORDS = []
 
-    def __init__(self, distance_weight=0.9, negation_weight=-0.5, cutoff=0.1):
+    # override this for right-head languages like Japanese
+    HEAD_DIRECTION = 'left'
+
+    nl = None
+
+    def __init__(self, distance_weight, negation_weight, cutoff):
         """
-        Create a reader that reads English text using `simplenlp`. You can
-        optionally adjust the weights for how much various terms affect
-        each other.
+        Set parameters that all SimpleNLPReaders use.
         """
-        self.nl = get_nl('en')
         self.negation_weight = negation_weight
         self.distance_weight = distance_weight
         self.cutoff = cutoff
+        self.SPECIAL_TOKENS = set(self.HARD_PUNCT + self.PUNCT +
+                                  self.PUNCT_TOKENS + self.NEGATIONS)
 
     def extract_tokens(self, text):
         """
@@ -115,16 +106,15 @@ class SimpleNLPEnglishReader(TextReader):
     
     def tokenize(self, text):
         """
-        Simply tokenize the text, without dealing with stopwords.
+        Tokenize text as appropriate for the language.
         """
-        return self.nl.tokenize(text).split()
+        raise NotImplementedError
 
-    def untokenize(self, tokens):
+    def untokenize(self, text):
         """
-        Given a list of tokens, re-assemble them into a phrase.
+        Untokenize text as appropriate for the language.
         """
-        spaced = ' '.join(tokens)
-        return self.nl.untokenize(spaced)
+        raise NotImplementedError
 
     def is_normal_word(self, token):
         """
@@ -132,8 +122,8 @@ class SimpleNLPEnglishReader(TextReader):
         outputting phrases, we want them to begin and end with normal
         tokens.
         """
-        return (token and (token not in self.__class__.SPECIAL_STUFF)
-                      and (token[0] not in self.__class__.PUNCT))
+        return (token and (token not in self.SPECIAL_TOKENS)
+                      and (token[0] not in self.PUNCT))
     
     def _attenuate(self, memory):
         """
@@ -155,9 +145,9 @@ class SimpleNLPEnglishReader(TextReader):
         The special term named `DOCUMENT` is used to mark the strength with
         which each term appears in the document itself.
         """
-        cls = self.__class__             # convenient shorthand
-        
         tokens = self.extract_tokens(text)
+        if self.HEAD_DIRECTION == 'right':
+            tokens.reverse()
         
         weight = 1.0
         memory = []
@@ -167,17 +157,17 @@ class SimpleNLPEnglishReader(TextReader):
             if token: # protect in case we get an empty token somehow
                 self._attenuate(memory)
                 active_terms = []
-                if token in cls.HARD_PUNCT:
+                if token in self.HARD_PUNCT:
                     memory = []
                     weight = 1.0
                     prev_token = None
-                elif token in cls.PUNCT_TOKENS or token[0] in cls.PUNCT:
+                elif token in self.PUNCT_TOKENS or token[0] in self.PUNCT:
                     weight = 1.0
                     prev_token = None
-                elif token in cls.NEGATIONS:
+                elif token in self.NEGATIONS:
                     weight *= self.negation_weight
                     prev_token = None
-                elif token in cls.EXTRA_STOPWORDS:
+                elif token in self.EXTRA_STOPWORDS:
                     continue
                 elif is_tag(token):
                     tag = parse_tag(token)
@@ -187,13 +177,16 @@ class SimpleNLPEnglishReader(TextReader):
                     # this is an ordinary token, not a negation or punctuation
                     active_terms = [token]
                     if prev_token is not None:
-                        bigram = prev_token + u' ' + token
+                        if self.HEAD_DIRECTION == 'right':
+                            bigram = token + ' ' + prev_token
+                        else:
+                            bigram = prev_token + u' ' + token
                         active_terms.append(bigram)
                     for term in active_terms:
                         yield (weight, DOCUMENT, term)
                         memory.append([term, weight])
                     prev_token = token
-
+                
                 for term in active_terms:
                     for prev, prev_weight in memory:
                         # Currently, this will associate each term with
@@ -213,10 +206,84 @@ class SimpleNLPEnglishReader(TextReader):
                 if (self.is_normal_word(tokens[left]) and
                     self.is_normal_word(tokens[right-1])):
                     phrase = self.untokenize(tokens[left:right])
-                    term = self.nl.lemma_split(phrase)[0]
+                    term = self.nl.normalize(phrase)
                     yield (term, phrase)
 
+
+class SimpleNLPEnglishReader(SimpleNLPReader):
+    """
+    A SimpleNLPReader for handling English text.
+    """
+    # words that flip the context from positive to negative
+    NEGATIONS = [u'no', u'not', u'never', u'stop', u'lack',
+                 u"n't", u'without']
     
+    EXTRA_STOPWORDS = [
+        'also', 'not', 'without', 'ever', 'because', 'then', 
+        'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other'
+    ]
+
+    def __init__(self, distance_weight=0.9, negation_weight=-0.5, cutoff=0.1):
+        """
+        Create a reader that reads English text using `simplenlp`. You can
+        optionally adjust the weights for how much various terms affect
+        each other.
+        """
+        SimpleNLPReader.__init__(self, distance_weight, negation_weight,
+                                 cutoff)
+        self.nl = get_nl('en')
+
+    def tokenize(self, text):
+        """
+        Simply tokenize the text, without dealing with stopwords.
+        """
+        return self.nl.tokenize(text).split()
+
+    def untokenize(self, tokens):
+        """
+        Given a list of tokens, re-assemble them into a phrase.
+        """
+        spaced = ' '.join(tokens)
+        return self.nl.untokenize(spaced)
+
+class SimpleNLPJapaneseReader(SimpleNLPReader):
+    """
+    A SimpleNLPReader for handling Japanese text.
+    """
+    HEAD_DIRECTION = 'left'
+
+    # Words that flip the context from positive to negative, to their *left*.
+    NEGATIONS = [u'ない']
+
+    # A bit unclear why most of these aren't handled in simplenlp.ja.
+    EXTRA_STOPWORDS = [u'ない', u'これ', u'それ', u'あれ', u'この', u'その',
+                       u'あの', u'ある', u'いる', u'する', u'が', u'と', u'も',
+                       u'で', u'か', u'ん', u'よう', u'ば', u'もの', u'くる',
+                       u'なに', u'何', u'なん', u'た']
+    
+    def __init__(self, distance_weight=0.9, negation_weight=-0.5, cutoff=0.1):
+        """
+        Create a reader that reads English text using `simplenlp`. You can
+        optionally adjust the weights for how much various terms affect
+        each other.
+        """
+        SimpleNLPReader.__init__(self, distance_weight, negation_weight,
+                                 cutoff)
+        self.nl = get_nl('ja')
+
+    def tokenize(self, text):
+        """
+        Simply tokenize the text, without dealing with stopwords.
+        """
+        tokens = self.nl.tokenize_list(text)
+        return [tok for tok in tokens if not self.is_stopword(tok)]
+
+    def untokenize(self, tokens):
+        """
+        Given a list of tokens, re-assemble them into a phrase.
+        """
+        return ''.join(tokens)
+
 def parse_tag(token):
     """
     If this token is a specially-marked tag, parse it into a consistent format.
@@ -245,12 +312,14 @@ def parse_tag(token):
     else:
         # this shouldn't happen, but if it does, it's not worth throwing
         # an error.
+        LOG.warn('Got a weird tag: %s' % token)
         key = token
         value = None
     return (TAG, key, value)
 
 READERS = {
     'simplenlp.en': SimpleNLPEnglishReader,
+    'simplenlp.ja': SimpleNLPJapaneseReader,
 }
 
 def get_reader(name):
