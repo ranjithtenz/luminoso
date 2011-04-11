@@ -35,7 +35,9 @@ def handle_text_file(filename, name=None):
     not yet implement, such as EUC-TW.
     """
     # open the raw text first, to determine its encoding
-    rawtext = open(filename, 'rb').read()
+    f = open(filename, 'rb')
+    rawtext = f.read()
+    f.close()
     encoding = chardet.detect(rawtext)['encoding']
     try:
         text = rawtext.decode(encoding, 'replace')
@@ -98,7 +100,7 @@ def handle_json_obj(obj, url, name=None):
         if u'text' in obj:
             # this is a single document on its own
             obj[u'url'] = url + u'#' + obj.get(u'name', name)
-            obj[u'name'] = obj.get(u'name', name)
+            obj.setdefault(u'name', name)
             yield obj
         elif u'url' in obj:
             for result in handle_url(baseurl + os.path.sep + obj[u'url'],
@@ -106,7 +108,7 @@ def handle_json_obj(obj, url, name=None):
                 yield result
         else:
             # assume it's a dictionary mapping name -> document
-            for newname, document in obj.items():
+            for newname, document in obj.iteritems():
                 fullurl = url + '#' + newname
                 for result in handle_json_obj(document, fullurl, newname):
                     yield result
