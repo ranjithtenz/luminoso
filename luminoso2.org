@@ -6,16 +6,16 @@ available as a plugin for Emacs, Sublime Text 2 (which I use), and possibly
 for vim.
 
 * Design plans [0/9]
-  - [ ] New "LuminosoModel" that can be incrementally trained [2/5]
+  - [ ] New "LuminosoModel" that can be incrementally trained [3/5]
     - [ ] Figure out {{rough incremental blending}}
     - [X] Look into normalization
-    - [ ] Test basic association
+    - [X] Test basic association
     - [X] Test tags
     - [ ] Document
 
   - [ ] LuminosoStudies on top of LuminosoModels [0/7]
     - [ ] Discover from filesystem
-    - [ ] Look into chi-squared correlation
+    - [ ] Look into the proper way to do correlation
     - [ ] Centrality
     - [ ] Interesting concepts (make more interesting)
     - [ ] Tag prediction (classification, as in SVM)
@@ -33,8 +33,9 @@ for vim.
           PDF/Word/HTML: needs to be separate
     - [ ] SQL
     - [ ] Mongo
-    - [ ] RSS/Atom feeds
-    - [ ] STOMP
+    - [ ] Streaming (groups documents into batches)
+      - [ ] RSS/Atom feeds
+      - [ ] STOMP
     - [ ] Document these
 
   - [ ] A variety of possible "readers" for text [1/4]
