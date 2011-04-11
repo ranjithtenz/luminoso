@@ -42,7 +42,8 @@ def handle_text_file(filename, name=None):
     except LookupError:
         raise UnicodeDecodeError(
           'File %r uses an unimplemented encoding %r' % (filename, encoding))
-    return handle_text(text, filename, name)
+    for result in handle_text(text, filename, name):
+        yield result
 
 def handle_text(text, url, name=None):
     """
