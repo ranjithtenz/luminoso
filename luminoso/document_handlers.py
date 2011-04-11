@@ -7,7 +7,6 @@ Document handlers are not currently pluggable; they are top-level functions.
 The job of `handle_url` is to dispatch to the appropriate function.
 """
 import chardet
-import codecs
 import os
 try:
     import json
@@ -31,13 +30,18 @@ def handle_text_file(filename, name=None):
     """
     Handle a file that we believe to contain plain text, in some reasonable
     encoding.
+
+    May raise a UnicodeDecodeError if the file uses a codec that Python does
+    not yet implement, such as EUC-TW.
     """
     # open the raw text first, to determine its encoding
-    rawtext = open(filename, 'rb')
-    encoding = chardet.detect(rawtext.read(1024))['encoding']
-    rawtext.close()
-
-    text = codecs.open(filename, encoding=encoding, errors='replace').read()
+    rawtext = open(filename, 'rb').read()
+    encoding = chardet.detect(rawtext)['encoding']
+    try:
+        text = rawtext.decode(encoding, 'replace')
+    except LookupError:
+        raise UnicodeDecodeError(
+          'File %r uses an unimplemented encoding %r' % (filename, encoding))
     for result in handle_text(text, filename, name):
         yield result
 
