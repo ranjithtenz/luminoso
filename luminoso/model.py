@@ -158,7 +158,6 @@ class LuminosoModel(object):
         reader = get_reader(doc.reader)
         for weight, term1, term2 in reader.extract_connections(doc.text):
             if term1 != DOCUMENT:
-                # FIXME: this doesn't use the TF-IDF weight
                 self.learn_assoc(weight, term1, term2)
     
     def index_term(self, term, priority=None):
