@@ -108,7 +108,6 @@ class LuminosoModel(object):
         Handle when a key falls out of the PrioritySet.
         """
         self.assoc.left[index, :] = 0
-        self.database.clear_term_priority_index(key)
 
     def add_document(self, doc, reader_name=None):
         """
@@ -171,7 +170,6 @@ class LuminosoModel(object):
         index = self.priority.add(term)
         if priority:
             self.priority.update(term, priority)
-        self.database.set_term_priority_index(term, index)
         return index
 
     def learn_assoc(self, weight, term1, term2):
