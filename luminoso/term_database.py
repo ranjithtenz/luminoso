@@ -384,6 +384,17 @@ class TermDatabase(object):
         self._clear_document(document)
         self.commit()
     
+    def index_for_term(self, term):
+        """
+        Returns the saved index number for this term, or None if the term
+        is not important enough to index.
+        """
+        term_entry = self.sql_session.query(Term).get(term)
+        if term_entry:
+            return term_entry.priority_index
+        else:
+            return None
+
     def count_term(self, term):
         """
         Returns the number of times we have seen this term.

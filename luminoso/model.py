@@ -140,8 +140,7 @@ class LuminosoModel(object):
                 else:
                     doc_terms.append((term2, weight))
                     relevance = self.database.term_relevance(term2)
-                    self.priority.add(term2)
-                    self.priority.update(term2, relevance)
+                    self.index_term(term2, relevance)
 
         doc['reader'] = reader_name
         doc['terms'] = doc_terms
@@ -161,15 +160,30 @@ class LuminosoModel(object):
         for weight, term1, term2 in reader.extract_connections(doc.text):
             if term1 != DOCUMENT:
                 self.learn_assoc(weight, term1, term2)
+    
+    def index_term(self, term, priority=None):
+        """
+        Ensure that a term is in both the database and the PrioritySet.
+        If `priority` is specified, this will update its priority value.
+
+        Returns the index of the term in the set.
+        """
+        index = self.priority.add(term)
+        if priority:
+            self.priority.update(term, priority)
+        self.database.set_term_priority_index(term, index)
+        return index
 
     def learn_assoc(self, weight, term1, term2):
         """
         Learn the strength of the association between term1 and term2.
+
+        FIXME: this juggles unimportant terms a lot. Optimize by ignoring terms
+        that haven't made it into the top n, instead of inserting them very
+        temporarily into the OrderedSet.
         """
-        row = self.assoc.row_labels.add(term1)
-        self.database.set_term_priority_index(term1, row)
-        col = self.assoc.col_labels.add(term2)
-        self.database.set_term_priority_index(term2, col)
+        row = self.index_term(term1)
+        col = self.index_term(term2)
         mse = self.assoc.hebbian_step(row, col, weight)
         return mse
 

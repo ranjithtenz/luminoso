@@ -2,6 +2,8 @@ import luminoso
 from luminoso.model import LuminosoModel
 import tempfile, shutil
 from nose.tools import assert_equal
+import logging
+logging.basicConfig()
 
 TEMPDIR = None
 
@@ -28,11 +30,22 @@ def test_small():
     model = LuminosoModel.make_empty(
         TEMPDIR + '/small',
         {
-            'num_concepts': 5,
+            'num_concepts': 3,
             'num_axes': 2,
             'iteration': 0,
             'reader': 'simplenlp.en'
         }
     )
-    assert model.config['num_concepts'] == 5
+    assert model.config['num_concepts'] == 3
+    assert model.index_term('a', 2) == 0
+    assert model.index_term('b', 1) == 1
+    assert model.index_term('c', 3) == 2
+    assert model.index_term('d', 4) == 1
+    assert model.index_term('e', 0) == 0
+    assert model.index_term('e', 0) == 0
+    assert model.priority.items == ['e', 'd', 'c']
+    assert model.database.index_for_term('e') == 0
+    assert model.database.index_for_term('d') == 1
+    assert model.database.index_for_term('c') == 2
+
 
