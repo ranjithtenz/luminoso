@@ -11,7 +11,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.schema import Index
-from sqlalchemy.sql.expression import desc
+from sqlalchemy.sql.expression import desc, text
 from sqlalchemy import create_engine, Column, Integer, Float, String, Text
 try:
     import json
@@ -19,7 +19,7 @@ except ImportError:
     import simplejson as json
 import logging
 LOG = logging.getLogger(__name__)
-
+#logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 def _expected_values(cont):
     """
@@ -176,10 +176,13 @@ class TermDatabase(object):
         """
         Open or create a TermDatabase, given its filename.
         """
+        # this boilerplate is turning me off from sqlalchemy. Why can't I have
+        # one object that I interact with, instead of four levels of crap?
         self.sql_engine = create_engine('sqlite:///'+filename)
         self.sql_session_maker = sessionmaker(bind=self.sql_engine)
         self.sql_session = self.sql_session_maker()
         Base.metadata.create_all(bind=self.sql_engine)
+        self.term_count_cache = {}
 
     def _increment_term_count(self, term, value=1, newdoc=False):
         """
@@ -192,6 +195,7 @@ class TermDatabase(object):
             term_entry.count += value
             if newdoc:
                 term_entry.distinct_docs += 1
+            self.term_count_cache[term] = term_entry.count
         else:
             assert newdoc, "Something is wrong -- how did this term "\
                            "appear without appearing in a document?"
@@ -261,6 +265,10 @@ class TermDatabase(object):
         term_entry = self.sql_session.query(Term).get(term)
         if term_entry:
             term_entry.fulltext = fulltext
+        #self.sql_engine.execute(
+        #  "update terms set fulltext=:fulltext where term=:term",
+        #  fulltext=fulltext, term=term
+        #)
 
     def find_term_texts(self, text, reader):
         """
@@ -359,11 +367,16 @@ class TermDatabase(object):
     def count_term(self, term):
         """
         Returns the number of times we have seen this term.
+        From the cache, if possible.
         """
+        if term in self.term_count_cache:
+            return self.term_count_cache[term]
         term_entry = self.sql_session.query(Term).get(term)
         if term_entry:
+            self.term_count_cache[term_entry] = term_entry.count
             return term_entry.count
         else:
+            self.term_count_cache[term_entry] = 0
             return 0
 
     def term_relevance(self, term):
@@ -401,8 +414,12 @@ class TermDatabase(object):
     def _update_term_relevance(self, term):
         """
         Calculate the new relevance value of a term and store it in the
-        database.
+        database (but don't commit yet).
         """
+        #self.sql_engine.execute(
+        #  "update terms set relevance=:relevance where term=:term",
+        #  term=term, relevance=self.term_relevance(term)
+        #)
         term_entry = self.sql_session.query(Term).get(term)
         term_entry.relevance = self.term_relevance(term)
 
