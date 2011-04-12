@@ -91,3 +91,12 @@ for vim.
   - Should common sense actually disappear as the amount of information
     increases?
   - What are the learning rates?
+
+* "selling points" during sponsor week
+  - Database + incremental learning: pick up where you left off
+  - Streaming input limits memory usage
+  - Pluggable readers
+    - use another language or substitute in a more elaborate parser
+  - reuse a domain model between many studies
+  - Supervised learning when you want it
+    - a Luminoso model makes a fine space to run an SVM in

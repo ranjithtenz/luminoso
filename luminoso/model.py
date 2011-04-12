@@ -261,11 +261,11 @@ class LuminosoModel(object):
                 for term1, term2 in learn_accumulator:
                     i += 1
                     if (i % 100) == 0:
-                        LOG.info("Learned, %d/%d; err=%4.4f"
+                        LOG.info("Learned %d/%d; err=%4.4f"
                                  % (i, total, avg_err))
                     weight = learn_accumulator[(term1, term2)]
                     err = self.learn_assoc(weight, term1, term2)
-                    avg_err = (.9 * avg_err) + (.1 * err)
+                    avg_err = (.999 * avg_err) + (.001 * err)
         
         # Finally, update the full texts of the terms we saw.
         for term, fulltext in fulltext_cache.items():
