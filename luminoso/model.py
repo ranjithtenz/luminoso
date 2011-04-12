@@ -18,6 +18,7 @@ from divisi2.ordered_set import PrioritySet
 from luminoso.term_database import TermDatabase, _BIG
 from luminoso.text_readers import get_reader, DOCUMENT, TAG
 from luminoso.document_handlers import handle_url
+from collections import defaultdict
 import os
 from config import Config
 import logging
@@ -80,7 +81,10 @@ class LuminosoModel(object):
 
     def save_config(self):
         "Save the current configuration to the configuration file."
-        LuminosoModel._save_config_object(self.config)
+        save_config_file(
+          self.config,
+          self.filename_in_dir(LuminosoModel.CONFIG_FILENAME)
+        )
 
     def _load_assoc(self):
         "Load the association matrix and priority queue from a file."
@@ -150,12 +154,12 @@ class LuminosoModel(object):
         self.database.add_document(doc)
         return doc['url']
     
-    def learn_document(self, docid):
+    def document_assoc_updates(self, docid):
         """
-        Given a previously added document, use it to update the association
-        matrix. This can be repeated to increase accuracy.
+        Given a previously added document, yield triples to use to update the 
+        association matrix.
         """
-        LOG.info("Learning from: %r" % docid)
+        LOG.info("Collecting associations from: %r" % docid)
         if docid in self.associations_cache:
             associations = self.associations_cache[docid]
         else:
@@ -163,9 +167,10 @@ class LuminosoModel(object):
             reader = get_reader(doc.reader)
             associations = reader.extract_connections(doc.text)
         for weight, term1, term2 in associations:
+            norm_factor = (self.database.count_term(term1)
+                           * self.database.count_term(term2)) ** .5
             if term1 != DOCUMENT:
-                if term1 in self.priority and term2 in self.priority:
-                    self.learn_assoc(weight, term1, term2)
+                yield weight/norm_factor, term1, term2
     
     def index_term(self, term, priority=None):
         """
@@ -185,45 +190,76 @@ class LuminosoModel(object):
         both of which should exist in self.priority for efficiency's sake.
         For the purpose of testing, however, we can still add the terms.
         """
-        row = self.priority.index(term1)
-        if row is None:
+        try:
+            row = self.priority.index(term1)
+        except KeyError:
             row = self.priority.add(term1)
-        col = self.priority.index(term2)
-        if col is None:
+        try:
+            col = self.priority.index(term2)
+        except KeyError:
             col = self.priority.add(term2)
 
-        mse = self.assoc.hebbian_step(row, col, weight)
+        mse = self.assoc.hebbian_increment(row, col, weight)
         return mse
 
-    def learn_from_url(self, url, study=None):
+    def learn_from_url(self, url, study=None, iterations=3):
         """
         Given a URL or file path that points to a collection of documents,
         learn from all of those documents. They may also be added to a
         study at the same time.
         """
-        self.add_from_url(url, study, learn=True)
+        self.add_from_url(url, study, learn_iterations=iterations)
+        self.save_assoc()
+        self.save_config()
 
-    def add_from_url(self, url, study=None, learn=False):
+    def add_from_url(self, url, study=None, learn_iterations=0):
         """
         Given a URL or file path that points to a collection of documents,
-        add all the documents to the database. By default `learn`=False, so
-        the concept model will not change. When `learn`=True, this 
+        add all the documents to the database. If `learn_iterations` is 0,
+        the concept model will not change. When greater than 0, this 
         implements `learn_from_url`.
 
         This is the main loop that one should use to train a model with a
         batch of documents.
         """
+        self.add_batch(lambda: handle_url(url), study, learn_iterations)
+
+    def add_batch(self, stream_func, study=None, learn_iterations=0):
+        """
+        Add a batch of documents from some source, a `stream_func` that
+        when called returns an iterator over the documents.
+        """
         fulltext_cache = {}
-        for doc in handle_url(url):
+
+        # First pass: add documents to the term database, and meanwhile
+        # collect full texts and tags.
+        for doc in stream_func():
             docid = self.add_document(doc)
             reader = get_reader(doc['reader'])
             for term, fulltext in reader.extract_term_texts(doc['text']):
                 fulltext_cache[term] = fulltext
             if study is not None:
                 self.database.set_tag_on_document(docid, 'study', study)
-        if learn:
-            for doc in handle_url(url):
-                self.learn_document(doc['url'])
+        
+        if learn_iterations:
+            # Second pass (optional): find how much we should update the
+            # ReconstructedMatrix entries based on the word associations
+            # we discover.
+            learn_accumulator = defaultdict(float)
+            for doc in stream_func():
+                for weight, term1, term2\
+                 in self.document_assoc_updates(doc['url']):
+                    learn_accumulator[(term1, term2)] += weight
+
+            # Now actually apply those total updates. Multiple times, if asked.
+            for iter in xrange(learn_iterations):
+                LOG.info("Updating association matrix: iteration %d" % iter)
+                for term1, term2 in learn_accumulator:
+                    if term1 in self.priority and term2 in self.priority:
+                        self.learn_assoc(learn_accumulator[(term1, term2)],
+                                         term1, term2)
+        
+        # Finally, update the full texts of the terms we saw.
         for term, fulltext in fulltext_cache.items():
             self.database.set_term_text(term, fulltext)
 
