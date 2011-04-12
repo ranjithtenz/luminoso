@@ -253,7 +253,14 @@ class TermDatabase(object):
         except NoResultFound:
             tag_entry = Feature(document, key, json_encode(value))
             self.sql_session.add(tag_entry)
- 
+    
+    def get_term_text(self, term):
+        term_entry = self.sql_session.query(Term).get(term)
+        if term_entry:
+            return term_entry.fulltext
+        else:
+            return term        
+
     def set_term_text(self, term, fulltext):
         """
         After observing the use of a term in a document, record the full text
@@ -484,6 +491,16 @@ class TermDatabase(object):
             - math.log(1 + self.count_term_distinct_documents(term))
         return tf * idf
     
+    def all_tags(self):
+        """
+        Get a list of all (key, value) pairs that define tags on this dataset.
+        """
+        tags = set()
+        query = self.sql_session.query(Feature).all()
+        for tag in query:
+            tags.add(tag.key, tag.value)
+        return tags
+
     def documents_with_tag(self, tag):
         """
         Get a generator of document IDs with a certain tag present, along with

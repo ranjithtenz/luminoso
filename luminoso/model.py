@@ -331,13 +331,39 @@ class LuminosoModel(object):
         for docid in docs:
             row = dmat.row_index(docid)
             dmat[row] = self.vector_from_document(docid)
-        divisi2.save(self.filename_in_dir(study_name+'.dmat'))
+        divisi2.save(dmat, self.filename_in_dir(study_name+'.dmat'))
+
+    def get_doc_matrix(self, study_name):
+        return divisi2.load(self.filename_in_dir(study_name+'.dmat'))
 
     def update_tag_matrix(self):
         """
         TODO
         """
         pass
+
+    def export_svdview(self, study_name, num=10000):
+        from divisi2.export_svdview import write_packed
+        def denormalize(concept_text):
+            doc = self.database.get_document(concept_text)
+            if doc:
+                return doc.name
+            else:
+                return concept_text
+                #return self.database.get_term_text(concept_text)
+        
+        top_terms = [term.term for term in self.database.top_terms(num)]
+        num = len(top_terms)
+        term_mat = divisi2.DenseMatrix(
+          np.zeros((num, self.config['num_axes'])),
+          row_labels=top_terms
+        )
+        for i in xrange(num):
+            term = top_terms[i]
+            term_mat[i, :] = self.assoc.left[self.priority.index(term)]
+
+        mat = term_mat.concatenate(self.get_doc_matrix(study_name))
+        write_packed(mat, self.filename_in_dir(study_name), denormalize)
 
     def vector_from_terms(self, terms):
         """
@@ -356,11 +382,8 @@ class LuminosoModel(object):
             if term in self.priority:
                 index = self.priority.index(term)
                 tfidf_weight = weight * self.get_term_idf(term) / total_weight
-                assert tfidf_weight > 0
                 vec[index] = tfidf_weight
-        assert np.linalg.norm(vec) > 0
         category = divisi2.dot(vec, self.assoc.left)
-        assert np.linalg.norm(category) > 0
         return category
 
     def vector_from_text(self, text, reader_name=None):
