@@ -51,7 +51,7 @@ class SimpleNLPReader(TextReader):
 
     The model of connections between words is one that decreases geometrically
     until a cutoff value. The default values allow for associations between
-    words that are up to 20 tokens apart.
+    words that are up to 10 tokens apart.
 
     It also includes negative contexts. When one term in a pair appears in a
     negative context, the sign of the connection is flipped. The sign of the
@@ -148,7 +148,6 @@ class SimpleNLPReader(TextReader):
         tokens = self.extract_tokens(text)
         if self.HEAD_DIRECTION == 'right':
             tokens.reverse()
-        LOG.info(u' / '.join(tokens))
         weight = 1.0
         memory = []
         prev_token = None
@@ -223,7 +222,7 @@ class SimpleNLPEnglishReader(SimpleNLPReader):
         'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other'
     ]
 
-    def __init__(self, distance_weight=0.9, negation_weight=-0.5, cutoff=0.1):
+    def __init__(self, distance_weight=0.8, negation_weight=-0.5, cutoff=0.1):
         """
         Create a reader that reads English text using `simplenlp`. You can
         optionally adjust the weights for how much various terms affect
@@ -266,7 +265,7 @@ class SimpleNLPJapaneseReader(SimpleNLPReader):
     PUNCT_TOKENS = [u"''", u"``", u"'", u"`", u":", u";", u'-', u'--', u'---',
                     u"は"]
 
-    def __init__(self, distance_weight=0.9, negation_weight=-0.5, cutoff=0.1):
+    def __init__(self, distance_weight=0.8, negation_weight=-0.5, cutoff=0.1):
         """
         Create a reader that reads English text using `simplenlp`. You can
         optionally adjust the weights for how much various terms affect
@@ -317,6 +316,9 @@ def parse_tag(token):
     value, `key` is the name of the tag, and `value` is the value it is
     assigned (or None).
     """
+    # a way to deal with PLDB-style tags
+    token = token.replace(':', '=')
+
     if token.startswith(u'#'):
         if u'=' in token:
             key, value = token[1:].split(u'=', 1)
