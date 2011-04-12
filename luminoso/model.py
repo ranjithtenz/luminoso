@@ -167,9 +167,9 @@ class LuminosoModel(object):
             reader = get_reader(doc.reader)
             associations = reader.extract_connections(doc.text)
         for weight, term1, term2 in associations:
-            norm_factor = (self.database.count_term(term1)
-                           * self.database.count_term(term2)) ** .5
             if term1 != DOCUMENT:
+                norm_factor = (self.database.count_term(term1)
+                               * self.database.count_term(term2)) ** .5
                 yield weight/norm_factor, term1, term2
     
     def index_term(self, term, priority=None):
@@ -249,15 +249,23 @@ class LuminosoModel(object):
             for doc in stream_func():
                 for weight, term1, term2\
                  in self.document_assoc_updates(doc['url']):
-                    learn_accumulator[(term1, term2)] += weight
+                    if term1 in self.priority and term2 in self.priority:
+                        learn_accumulator[(term1, term2)] += weight
 
             # Now actually apply those total updates. Multiple times, if asked.
+            total = len(learn_accumulator)
             for iter in xrange(learn_iterations):
-                LOG.info("Updating association matrix: iteration %d" % iter)
+                LOG.info("Updating association matrix: pass %d" % (iter+1))
+                i = 0
+                avg_err = 1.0
                 for term1, term2 in learn_accumulator:
-                    if term1 in self.priority and term2 in self.priority:
-                        self.learn_assoc(learn_accumulator[(term1, term2)],
-                                         term1, term2)
+                    i += 1
+                    if (i % 100) == 0:
+                        LOG.info("Learned, %d/%d; err=%4.4f"
+                                 % (i, total, avg_err))
+                    weight = learn_accumulator[(term1, term2)]
+                    err = self.learn_assoc(weight, term1, term2)
+                    avg_err = (.9 * avg_err) + (.1 * err)
         
         # Finally, update the full texts of the terms we saw.
         for term, fulltext in fulltext_cache.items():
