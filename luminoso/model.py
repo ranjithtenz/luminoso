@@ -278,7 +278,24 @@ class LuminosoModel(object):
     @staticmethod
     def make_english(model_dir, config=None):
         """
-        Make a LuminosoModel whose initial matrix contains English common sense.
+        Make a LuminosoModel whose initial matrix contains common sense
+        in English.
+        """
+        return LuminosoModel.make_common_sense(model_dir, 'en', config)
+
+    @staticmethod
+    def make_japanese(model_dir, config=None):
+        """
+        Make a LuminosoModel whose initial matrix contains common sense
+        in Japanese.
+        """
+        return LuminosoModel.make_common_sense(model_dir, 'ja', config)
+
+    @staticmethod
+    def make_common_sense(model_dir, lang='en', config=None):
+        """
+        Make a LuminosoModel whose initial matrix contains common sense
+        for some language.
         """
         if config is None:
             config = _default_config()
