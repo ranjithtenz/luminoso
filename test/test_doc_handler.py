@@ -10,7 +10,7 @@ def test_basics():
 
 def test_directory():
     test_dir = get_project_filename('test/TestDocuments')
-    good = [{u'name': u'happytest.txt',
+    good = [{u'name': u'i am happy and not sad',
              u'text': u'i am happy and not sad\n',
              u'url': test_dir + u'/happytest.txt'},
             {u'name': u'string.json',
@@ -35,7 +35,7 @@ def test_directory():
             {u'name': u'unicode test',
              u'text': u'\u4e00\u4e8c\u4e09\u56db\u4e94',
              u'url': test_dir + u'/unicode.json#unicode test'},
-            {u'name': u'unicode.txt',
+            {u'name': u'\u4e94\u56db\u4e09\u4e8c\u4e00',
              u'text': u'\u4e94\u56db\u4e09\u4e8c\u4e00\n',
              u'url': test_dir + u'/unicode.txt'},
             {u'name': u'small entry',

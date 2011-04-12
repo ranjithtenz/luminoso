@@ -51,7 +51,12 @@ def handle_text(text, url, name=None):
     """
     Given plain text content, return it as a document dictionary.
     """
-    name = ensure_unicode(name or os.path.basename(url))
+    text = ensure_unicode(text)
+    if name is None:
+        # get it from the beginning of the text
+        name = text.split('\n')[0][:40]
+    else:
+        name = ensure_unicode(name)
     yield {u'name': name, u'url': url, u'text': ensure_unicode(text)}
 
 def _check_document(document):
