@@ -154,18 +154,41 @@ class LuminosoModel(object):
         self.database.add_document(doc)
         return doc['url']
     
+    def get_document_associations(self, docid):
+        """
+        Given a previously added document, get the list of associations
+        produced from it.
+        """
+        if docid in self.associations_cache:
+            associations = self.associations_cache[docid]
+        else:
+            doc = self.database.get_document(docid)
+            reader = get_reader(doc.reader)
+            associations = list(reader.extract_connections(doc.text))
+        return associations
+    
+    def get_document_terms(self, docid):
+        """
+        Given a previously added document, get the list of weighted terms
+        that appear in it, as (term, weight) tuples.
+        """
+        return [(term2, weight) for (weight, term1, term2)
+                in self.get_document_associations(docid)
+                if term1 == DOCUMENT]
+    
+    def get_document_tags(self, docid):
+        """
+        Get the list of tags on a document from the database.
+        """
+        return self.database.get_document_tags(docid)
+        
     def document_assoc_updates(self, docid):
         """
         Given a previously added document, yield triples to use to update the 
         association matrix.
         """
         LOG.info("Collecting associations from: %r" % docid)
-        if docid in self.associations_cache:
-            associations = self.associations_cache[docid]
-        else:
-            doc = self.database.get_document(docid)
-            reader = get_reader(doc.reader)
-            associations = reader.extract_connections(doc.text)
+        associations = self.get_document_associations(docid)
         for weight, term1, term2 in associations:
             if term1 != DOCUMENT:
                 norm_factor = (self.database.count_term(term1)
@@ -291,9 +314,20 @@ class LuminosoModel(object):
         sparse matrix from them.
         """
         # TODO
-        raise NotImplementedError
+        pass
 
-    def text_vector(self, text, reader):
+    def vector_from_terms(self, terms):
+        """
+        Get a category vector representing the given set of weighted terms,
+        expressed as (term, weight) tuples.
+
+        FIXME: IDF
+        """
+        sparse_vec = divisi2.SparseVector.from_items(terms)
+        category = self.assoc.right_category(sparse_vec)
+        return category
+
+    def vector_from_text(self, text, reader):
         """
         Get a category vector in this model representing the given text,
         with TF-IDF applied.
@@ -301,7 +335,7 @@ class LuminosoModel(object):
         # TODO
         raise NotImplementedError
 
-    def document_vector(self, doc_id):
+    def vector_from_document(self, doc_id):
         """
         Get a category vector for the given known document, with TF-IDF
         applied.

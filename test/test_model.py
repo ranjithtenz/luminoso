@@ -61,6 +61,11 @@ def test_read_from_url():
       get_project_filename('test/TestDocuments/happytest.txt')
     )
     assert tags == [(u'study', u'test')]
+    terms = model.get_document_terms(
+      get_project_filename('test/TestDocuments/happytest.txt')
+    )
+    assert terms == [('happy', 1.0), ('sad', -0.5)]
+
 
 if __name__ == '__main__':
     import cProfile
