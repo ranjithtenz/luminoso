@@ -311,6 +311,7 @@ class LuminosoModel(object):
         # If this was a study, make a document matrix for it.
         if study is not None:
             self.update_doc_matrix(study)
+        self.update_tag_matrix()
     
     def docs_in_study(self, study_name):
         """
@@ -330,6 +331,13 @@ class LuminosoModel(object):
         for docid in docs:
             row = dmat.row_index(docid)
             dmat[row] = self.vector_from_document(docid)
+        divisi2.save(self.filename_in_dir(study_name+'.dmat'))
+
+    def update_tag_matrix(self):
+        """
+        TODO
+        """
+        pass
 
     def vector_from_terms(self, terms):
         """

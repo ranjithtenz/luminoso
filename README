@@ -1,5 +1,8 @@
-This is Luminoso, a visualizer for semantic data in documents.
+This is Luminoso2, a tool for learning from domain-specific natural-language
+data and common sense background knowledge.
 
-You'll find more information about it at:
-http://csc.media.mit.edu/analogyspace/luminoso. Documentation is available at
-http://csc.media.mit.edu/docs/luminoso.
+This version does not yet have a GUI.
+
+If you are interested in testing it out, look at the documentation strings in
+`luminoso/model.py`, and the examples in `test/test_model.py`. Also see the
+`luminoso2.org` file for a list of what's new and what's coming.
