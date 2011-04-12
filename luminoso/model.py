@@ -324,6 +324,7 @@ class LuminosoModel(object):
         # If this was a study, make a document matrix for it.
         if study is not None:
             self.update_doc_matrix(study)
+        self.update_tag_matrix()
     
     def docs_in_study(self, study_name):
         """
@@ -343,6 +344,13 @@ class LuminosoModel(object):
         for docid in docs:
             row = dmat.row_index(docid)
             dmat[row] = self.vector_from_document(docid)
+        divisi2.save(self.filename_in_dir(study_name+'.dmat'))
+
+    def update_tag_matrix(self):
+        """
+        TODO
+        """
+        pass
 
     def vector_from_terms(self, terms):
         """
@@ -352,29 +360,32 @@ class LuminosoModel(object):
         total_weight = 0.0
         for _, weight in terms:
             total_weight += weight
-        
-        v_weights = []
-        v_terms = []
+
+        vec = divisi2.DenseVector(
+            np.zeros((len(self.priority),)),
+            labels=self.priority
+        )
         for term, weight in terms:
             if term in self.priority:
-                v_weights.append(weight * self.get_term_idf(term)
-                                        / total_weight)
-        if len(v_terms):
-            sparse_vec = divisi2.SparseVector.from_lists(v_weights, v_terms)
-            category = self.assoc.left.left_category(sparse_vec)
-        else:
-            # get a zero vector
-            category = self.assoc.left[0] * 0
+                index = self.priority.index(term)
+                tfidf_weight = weight * self.get_term_idf(term) / total_weight
+                assert tfidf_weight > 0
+                vec[index] = tfidf_weight
+        assert np.linalg.norm(vec) > 0
+        category = divisi2.dot(vec, self.assoc.left)
+        assert np.linalg.norm(category) > 0
         return category
 
-    def vector_from_text(self, text, reader_name):
+    def vector_from_text(self, text, reader_name=None):
         """
         Get a category vector in this model representing the given text,
         with TF-IDF applied.
         """
+        if reader_name is None:
+            reader_name = self.config['reader']
         reader = get_reader(reader_name)
         terms = []
-        for weight, term1, term2 in reader.extract_connections(reader_name):
+        for weight, term1, term2 in reader.extract_connections(text):
             if term1 == DOCUMENT:
                 terms.append((term2, weight))
         return self.vector_from_terms(terms)
@@ -386,6 +397,14 @@ class LuminosoModel(object):
         """
         terms = self.get_document_terms(doc_id)
         return self.vector_from_terms(terms)
+    
+    def terms_similar_to_vector(self, vec):
+        """
+        Take in a category vector, and returns a weighted vector of
+        associated terms. You can run the `top_items()` method of this vector
+        to get the most associated terms.
+        """
+        return divisi2.dot(self.assoc.left, vec)
 
     def __repr__(self):
         return "<LuminosoModel: %r>" % self.dir
@@ -464,9 +483,10 @@ class LuminosoModel(object):
         """
         if config is None:
             config = _default_config()
+            config['reader'] = 'simplenlp.'+lang
         if os.access(model_dir, os.F_OK):
             raise IOError("The model directory %r already exists." % model_dir)
-        assoc = divisi2.network.conceptnet_assoc('en')
+        assoc = divisi2.network.conceptnet_assoc(lang)
         (mat_U, diag_S, _) = assoc.normalize_all().svd(k=100)
         rmat = divisi2.reconstruct_activation(
             mat_U, diag_S, post_normalize=True
@@ -485,7 +505,7 @@ def _default_config():
     return config
 
 def _prioritize_labels(mat, num_concepts):
-    """t
+    """
     Ensure that a dense matrix has a PrioritySet for its row labels.
     """
     if not isinstance(mat.row_labels, PrioritySet):
