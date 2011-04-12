@@ -475,6 +475,31 @@ class TermDatabase(object):
         idf = math.log(1 + self.count_term_distinct_documents(ANY))\
             - math.log(1 + self.count_term_distinct_documents(term))
         return tf * idf
+    
+    def documents_with_tag(self, tag):
+        """
+        Get a generator of document IDs with a certain tag present, along with
+        the value of that tag.
+
+        TODO: test
+        """
+        query = self.sql_session.query(Feature)\
+                    .filter(Feature.key == tag)
+        for row in query:
+            yield row.document, json.loads(row.value)
+    
+    def documents_with_tag_value(self, tag, value):
+        """
+        Find documents where a certain tag has a certain value.
+        Returns a generator of document IDs.
+
+        TODO: test
+        """
+        jvalue = json.dumps(value)
+        query = self.sql_session.query(Feature)\
+                    .filter(Feature.key == tag).filter(Feature.value == jvalue)
+        for row in query:
+            yield row.document
 
     def commit(self):
         """

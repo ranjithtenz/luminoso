@@ -202,11 +202,14 @@ class LuminosoModel(object):
         mse = self.assoc.hebbian_increment(row, col, weight)
         return mse
 
-    def learn_from_url(self, url, study=None, iterations=3):
+    def learn_from_url(self, url, study=None, iterations=1):
         """
         Given a URL or file path that points to a collection of documents,
         learn from all of those documents. They may also be added to a
         study at the same time.
+
+        Default to 1 iteration, because on a reasonable amount of data that
+        will be all you need.
         """
         self.add_from_url(url, study, learn_iterations=iterations)
         self.save_assoc()
@@ -270,6 +273,41 @@ class LuminosoModel(object):
         # Finally, update the full texts of the terms we saw.
         for term, fulltext in fulltext_cache.items():
             self.database.set_term_text(term, fulltext)
+        
+        # If this was a study, make a document matrix for it.
+        if study is not None:
+            self.update_doc_matrix(study)
+    
+    def docs_in_study(self, study_name):
+        """
+        Get a list of all documents in the given study.
+        """
+        return list(self.database.documents_with_tag_value(u'study',
+                                                           study_name))
+
+    def update_doc_matrix(self, study_name):
+        """
+        Collect the documents in a particular study, and make a TF-IDFed
+        sparse matrix from them.
+        """
+        # TODO
+        raise NotImplementedError
+
+    def text_vector(self, text, reader):
+        """
+        Get a category vector in this model representing the given text,
+        with TF-IDF applied.
+        """
+        # TODO
+        raise NotImplementedError
+
+    def document_vector(self, doc_id):
+        """
+        Get a category vector for the given known document, with TF-IDF
+        applied.
+        """
+        # TODO
+        raise NotImplementedError
 
     def __repr__(self):
         return "<LuminosoModel: %r>" % self.dir
