@@ -61,3 +61,22 @@ def test_read_from_url():
       get_project_filename('test/TestDocuments/happytest.txt')
     )
     assert tags == [(u'study', u'test')]
+
+if __name__ == '__main__':
+    import cProfile
+    import simplenlp
+    en = simplenlp.get_nl('en')
+    en.lemma_split('test')
+    en.is_stopword('test')
+    setup_module()
+    model = LuminosoModel.make_empty(
+        TEMPDIR + '/testdocs',
+        {
+            'num_concepts': 5,
+            'num_axes': 2,
+            'iteration': 0,
+            'reader': 'simplenlp.en'
+        }
+    )
+    cProfile.run('for i in xrange(10): model.learn_from_url("TestDocuments")', sort=2)
+    teardown_module()
