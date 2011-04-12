@@ -159,6 +159,31 @@ class Document(Base):
     def __repr__(self):
         return "<Document %r: %r [%s]>" % (self.id, self.name, self.reader)
 
+class Association(Base):
+    """
+    A table row storing an association extracted from a document. Contains the
+    following fields:
+
+    - document: the id of the document
+    - term1: the first term text
+    - term2: the second term text
+    - weight: the strength of the association
+    """
+    __tablename__ = 'associations'
+    document = Column(String, nullable=False, index=True, primary_key=True)
+    term1 = Column(String, nullable=False, primary_key=True)
+    term2 = Column(String, nullable=False, primary_key=True)
+    weight = Column(Float, nullable=False)
+
+    def __init__(self, docid, term1, term2, weight):
+        self.document = docid
+        self.term1 = term1
+        self.term2 = term2
+        self.weight = weight
+
+    def __repr__(self):
+        return u"<Association on %r: %r<=>%r (%f)>" % (self.document, self.term1, self.term2, self.weight)
+
 #class GlobalData(Base):
 #    __tablename__ = 'global_data'
 #    key = Column(String, primary_key=True)
@@ -282,6 +307,7 @@ class TermDatabase(object):
         terms = doc_info[u'terms']
         text = doc_info[u'text']
         reader_name = doc_info[u'reader']
+        associations = doc_info[u'associations']
         doc = self.sql_session.query(Document).get(docid)
         if doc is not None:
             if doc.text == text and doc.reader == reader_name:
@@ -299,6 +325,9 @@ class TermDatabase(object):
 
         for key, value in doc_info.get('tags', []):
             self.set_tag_on_document(docid, key, value)
+
+        self.sql_session.add_all([Association(docid, term1, term2, weight)
+                              for weight, term1, term2 in associations])
         
         doc = Document(docid, docname, reader_name, text)
         self.sql_session.add(doc)
@@ -320,6 +349,15 @@ class TermDatabase(object):
                 in self.sql_session.query(Feature)
                        .filter(Feature.document == docid)
                        .values(Feature.key, Feature.value)]
+
+    def get_document_associations(self, docid):
+        """
+        Get a list of (weight, term1, term2) connections that occur in this
+        document.
+        """
+        return self.sql_session.query(Association)\
+            .filter(Association.document == docid)\
+            .values(Association.weight, Association.term1, Association.term2)
     
     def _clear_document(self, document):
         """
@@ -337,6 +375,9 @@ class TermDatabase(object):
             row.delete()
         any_term = self.sql_session.query(Term).get(ANY)
         any_term.distinct_docs -= 1
+        for row in (self.sql_session.query(Association)
+                    .filter(Association.document == doc.id).all()):
+            row.delete()
         doc.delete()
     
     def clear_document(self, document):

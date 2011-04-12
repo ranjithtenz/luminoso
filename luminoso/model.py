@@ -8,6 +8,8 @@ Overall design:
 - A LuminosoStudy contains many Documents (many of which also go into the model)
 - Spaces and studies are configured using the `config` module, giving
   configurations that are both easily human-readable and computer-readable
+
+Documents are often represented internally as dictionaries with {name, url, text}.
 """
 
 from __future__ import with_statement   # for Python 2.5 support
@@ -141,6 +143,7 @@ class LuminosoModel(object):
         doc_terms = []
         connections = list(reader.extract_connections(text))
         self.connections_cache[doc['url']] = connections
+        associations = []
         for weight, term1, term2 in connections:
             if term1 == DOCUMENT:
                 if isinstance(term2, tuple) and term2[0] == TAG:
@@ -149,10 +152,13 @@ class LuminosoModel(object):
                     doc_terms.append((term2, weight))
                     relevance = self.database.term_relevance(term2)
                     self.index_term(term2, relevance)
+            else:
+                associations.append((weight, term1, term2))
 
         doc['reader'] = reader_name
         doc['terms'] = doc_terms
         doc['tags'] = tags
+        doc['associations'] = associations
         self.database.add_document(doc)
         self.idf_cache = {}   # invalidate the cache of term IDFs
         return doc['url']
@@ -178,6 +184,13 @@ class LuminosoModel(object):
         return [(term2, weight) for (weight, term1, term2)
                 in self.get_document_connections(docid)
                 if term1 == DOCUMENT]
+
+    def get_document_associations(self, docid):
+        """
+        Given a previously added document, get the list of term associations
+        that appear in it, as (weight, term1, term2) tuples.
+        """
+        return self.database.get_document_associations(docid)
     
     def get_document_tags(self, docid):
         """
@@ -191,12 +204,12 @@ class LuminosoModel(object):
         association matrix.
         """
         LOG.info("Collecting connections from: %r" % docid)
-        connections = self.get_document_connections(docid)
-        for weight, term1, term2 in connections:
-            if term1 != DOCUMENT:
-                norm_factor = (self.database.count_term(term1)
-                               * self.database.count_term(term2)) ** .5
-                yield weight/norm_factor, term1, term2
+        associations = self.get_document_associations(docid)
+        for weight, term1, term2 in associations:
+            assert term1 != DOCUMENT
+            norm_factor = (self.database.count_term(term1)
+                           * self.database.count_term(term2)) ** .5
+            yield weight/norm_factor, term1, term2
     
     def index_term(self, term, priority=None):
         """
