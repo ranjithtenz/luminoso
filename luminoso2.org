@@ -86,11 +86,10 @@ for vim.
     used to form the space
 
 * rough incremental blending
-  - implemented with Divisi2
-  - Start with a common sense associative matrix
-  - Should common sense actually disappear as the amount of information
-    increases?
-  - What are the learning rates?
+  - take in two streams: one of domain data and one of common sense
+  - keep a moving average (over 1000 updates or so) of the error rate
+    for each stream
+  - Learn from whichever stream currently has the highest error rate
 
 * "selling points" during sponsor week
   - Database + incremental learning: pick up where you left off
