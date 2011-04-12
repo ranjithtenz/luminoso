@@ -5,10 +5,10 @@ have various features for keeping track of things like to-do lists. Orgmode is
 available as a plugin for Emacs, Sublime Text 2 (which I use), and possibly
 for vim.
 
-* Short-term TODOs [2/12]
+* Short-term TODOs [3/12]
   - [X] change learning process to iterate multiple times
   - [X] test PLDB associations
-  - [ ] compare inputs to documents
+  - [X] compare inputs to documents
   - [ ] compare inputs to tags
   - [ ] compare documents to documents
   - [ ] compare documents to tags
