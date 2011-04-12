@@ -218,7 +218,7 @@ class SimpleNLPEnglishReader(SimpleNLPReader):
                  u"n't", u'without']
     
     EXTRA_STOPWORDS = [
-        'also', 'not', 'without', 'ever', 'because', 'then', 
+        'also', 'no', 'not', 'without', 'ever', 'because', 'then', 
         'than', 'do', 'just', 'how', 'out', 'much', 'both', 'other'
     ]
 
