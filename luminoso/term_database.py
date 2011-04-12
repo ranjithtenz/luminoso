@@ -465,6 +465,14 @@ class TermDatabase(object):
     #        global_entry = GlobalData(key, 1)
     #        self.sql_session.add(global_entry)
 
+    def term_idf(self, term):
+        """
+        Get the IDF value for a given term.
+        """
+        idf = math.log(1 + self.count_term_distinct_documents(ANY))\
+            - math.log(1 + self.count_term_distinct_documents(term))
+        return idf        
+
     def tfidf_term_in_document(self, term, document):
         """
         Calculate the TF-IDF (Term Frequency by Inverse Document Frequency)

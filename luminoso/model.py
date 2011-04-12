@@ -12,6 +12,7 @@ Overall design:
 
 from __future__ import with_statement   # for Python 2.5 support
 import divisi2
+import numpy as np
 from divisi2.fileIO import load_pickle, save_pickle
 from divisi2.reconstructed import ReconstructedMatrix
 from divisi2.ordered_set import PrioritySet
@@ -56,6 +57,7 @@ class LuminosoModel(object):
           self.filename_in_dir(LuminosoModel.DB_FILENAME)
         )
         self.associations_cache = {}
+        self.idf_cache = {}
     
     def filename_in_dir(self, filename):
         """
@@ -152,6 +154,7 @@ class LuminosoModel(object):
         doc['terms'] = doc_terms
         doc['tags'] = tags
         self.database.add_document(doc)
+        self.idf_cache = {}   # invalidate the cache of term IDFs
         return doc['url']
     
     def get_document_associations(self, docid):
@@ -206,6 +209,14 @@ class LuminosoModel(object):
         if priority:
             self.priority.update(term, priority)
         return index
+
+    def get_term_idf(self, term):
+        if term in self.idf_cache:
+            return self.idf_cache[term]
+        else:
+            idf = self.database.term_idf(term)
+            self.idf_cache[term] = idf
+            return idf
 
     def learn_assoc(self, weight, term1, term2):
         """
@@ -310,38 +321,58 @@ class LuminosoModel(object):
 
     def update_doc_matrix(self, study_name):
         """
-        Collect the documents in a particular study, and make a TF-IDFed
-        sparse matrix from them.
+        Collect the documents in a particular study, and make a dense matrix
+        from them representing their positions in this semantic space.
         """
-        # TODO
-        pass
+        docs = self.docs_in_study(study_name)
+        npmat = np.zeros((len(docs), self.config['num_axes']))
+        dmat = divisi2.DenseMatrix(npmat, row_labels=docs)
+        for docid in docs:
+            row = dmat.row_index(docid)
+            dmat[row] = self.vector_from_document(docid)
 
     def vector_from_terms(self, terms):
         """
         Get a category vector representing the given set of weighted terms,
-        expressed as (term, weight) tuples.
-
-        FIXME: IDF
+        expressed as (term, weight) tuples. This will apply TF-IDF weighting.
         """
-        sparse_vec = divisi2.SparseVector.from_items(terms)
-        category = self.assoc.right_category(sparse_vec)
+        total_weight = 0.0
+        for _, weight in terms:
+            total_weight += weight
+        
+        v_weights = []
+        v_terms = []
+        for term, weight in terms:
+            if term in self.priority:
+                v_weights.append(weight * self.get_term_idf(term)
+                                        / total_weight)
+        if len(v_terms):
+            sparse_vec = divisi2.SparseVector.from_lists(v_weights, v_terms)
+            category = self.assoc.left.left_category(sparse_vec)
+        else:
+            # get a zero vector
+            category = self.assoc.left[0] * 0
         return category
 
-    def vector_from_text(self, text, reader):
+    def vector_from_text(self, text, reader_name):
         """
         Get a category vector in this model representing the given text,
         with TF-IDF applied.
         """
-        # TODO
-        raise NotImplementedError
+        reader = get_reader(reader_name)
+        terms = []
+        for weight, term1, term2 in reader.extract_connections(reader_name):
+            if term1 == DOCUMENT:
+                terms.append((term2, weight))
+        return self.vector_from_terms(terms)
 
     def vector_from_document(self, doc_id):
         """
         Get a category vector for the given known document, with TF-IDF
         applied.
         """
-        # TODO
-        raise NotImplementedError
+        terms = self.get_document_terms(doc_id)
+        return self.vector_from_terms(terms)
 
     def __repr__(self):
         return "<LuminosoModel: %r>" % self.dir
@@ -441,7 +472,7 @@ def _default_config():
     return config
 
 def _prioritize_labels(mat, num_concepts):
-    """
+    """t
     Ensure that a dense matrix has a PrioritySet for its row labels.
     """
     if not isinstance(mat.row_labels, PrioritySet):
