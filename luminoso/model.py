@@ -164,7 +164,8 @@ class LuminosoModel(object):
             associations = reader.extract_connections(doc.text)
         for weight, term1, term2 in associations:
             if term1 != DOCUMENT:
-                self.learn_assoc(weight, term1, term2)
+                if term1 in self.priority and term2 in self.priority:
+                    self.learn_assoc(weight, term1, term2)
     
     def index_term(self, term, priority=None):
         """
@@ -180,14 +181,17 @@ class LuminosoModel(object):
 
     def learn_assoc(self, weight, term1, term2):
         """
-        Learn the strength of the association between term1 and term2.
-
-        FIXME: this juggles unimportant terms a lot. Optimize by ignoring terms
-        that haven't made it into the top n, instead of inserting them very
-        temporarily into the OrderedSet.
+        Learn the strength of the association between term1 and term2,
+        both of which should exist in self.priority for efficiency's sake.
+        For the purpose of testing, however, we can still add the terms.
         """
-        row = self.index_term(term1)
-        col = self.index_term(term2)
+        row = self.priority.index(term1)
+        if row is None:
+            row = self.priority.add(term1)
+        col = self.priority.index(term2)
+        if col is None:
+            col = self.priority.add(term2)
+
         mse = self.assoc.hebbian_step(row, col, weight)
         return mse
 
@@ -217,8 +221,9 @@ class LuminosoModel(object):
                 fulltext_cache[term] = fulltext
             if study is not None:
                 self.database.set_tag_on_document(docid, 'study', study)
-            if learn:
-                self.learn_document(docid)
+        if learn:
+            for doc in handle_url(url):
+                self.learn_document(doc['url'])
         for term, fulltext in fulltext_cache.items():
             self.database.set_term_text(term, fulltext)
 
