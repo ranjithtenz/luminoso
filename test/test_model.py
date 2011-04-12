@@ -79,4 +79,7 @@ if __name__ == '__main__':
         }
     )
     cProfile.run('for i in xrange(10): model.learn_from_url("TestDocuments")', sort=2)
+    #model = LuminosoModel('../models/PLDBStudy_test3')
+    #cProfile.run("model.learn_from_url('../models/PLDBStudy/Documents')", sort=2)
+
     teardown_module()

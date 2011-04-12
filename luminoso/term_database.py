@@ -11,7 +11,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.schema import Index
-from sqlalchemy.sql.expression import desc, text
+from sqlalchemy.sql.expression import desc
 from sqlalchemy import create_engine, Column, Integer, Float, String, Text
 try:
     import json
@@ -265,25 +265,8 @@ class TermDatabase(object):
         term_entry = self.sql_session.query(Term).get(term)
         if term_entry:
             term_entry.fulltext = fulltext
-        #self.sql_engine.execute(
-        #  "update terms set fulltext=:fulltext where term=:term",
-        #  fulltext=fulltext, term=term
-        #)
 
-    def find_term_texts(self, text, reader):
-        """
-        Given a text and the reader to read it with, record which
-        phrases correspond to which canonicalized terms, independently of
-        the documents that they appear in. This gives a human-readable name
-        to most terms.
-        """
-        for term, phrase in reader.extract_term_texts(text):
-            self.set_term_text(term, phrase)
-        tokens = reader.tokenize(text)
-        for window in xrange(1, 5):
-            for left in xrange(len(tokens) - window + 1):
-                right = left + window
-                phrase = reader.untokenize(tokens[left:right])
+    # removed find_term_texts; this is an inefficient place to do that.
     
     def add_document(self, doc_info):
         """
@@ -337,7 +320,7 @@ class TermDatabase(object):
                 in self.sql_session.query(Feature)
                        .filter(Feature.document == docid)
                        .values(Feature.key, Feature.value)]
-
+    
     def _clear_document(self, document):
         """
         Remove the information that we got from a given Document, given its
