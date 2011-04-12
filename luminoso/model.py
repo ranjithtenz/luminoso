@@ -54,6 +54,7 @@ class LuminosoModel(object):
         self.database = TermDatabase(
           self.filename_in_dir(LuminosoModel.DB_FILENAME)
         )
+        self.associations_cache = {}
     
     def filename_in_dir(self, filename):
         """
@@ -132,7 +133,9 @@ class LuminosoModel(object):
         text = doc['text']
         tags = doc.get('tags', [])
         doc_terms = []
-        for weight, term1, term2 in reader.extract_connections(text):
+        associations = list(reader.extract_connections(text))
+        self.associations_cache[doc['url']] = associations
+        for weight, term1, term2 in associations:
             if term1 == DOCUMENT:
                 if isinstance(term2, tuple) and term2[0] == TAG:
                     tags.append(term2[1:])
@@ -145,7 +148,6 @@ class LuminosoModel(object):
         doc['terms'] = doc_terms
         doc['tags'] = tags
         self.database.add_document(doc)
-        self.database.find_term_texts(text, reader)
         return doc['url']
     
     def learn_document(self, docid):
@@ -154,9 +156,13 @@ class LuminosoModel(object):
         matrix. This can be repeated to increase accuracy.
         """
         LOG.info("Learning from: %r" % docid)
-        doc = self.database.get_document(docid)
-        reader = get_reader(doc.reader)
-        for weight, term1, term2 in reader.extract_connections(doc.text):
+        if docid in self.associations_cache:
+            associations = self.associations_cache[docid]
+        else:
+            doc = self.database.get_document(docid)
+            reader = get_reader(doc.reader)
+            associations = reader.extract_connections(doc.text)
+        for weight, term1, term2 in associations:
             if term1 != DOCUMENT:
                 self.learn_assoc(weight, term1, term2)
     
@@ -200,14 +206,21 @@ class LuminosoModel(object):
         the concept model will not change. When `learn`=True, this 
         implements `learn_from_url`.
 
-        This is the main loop that one should use to train a model.
+        This is the main loop that one should use to train a model with a
+        batch of documents.
         """
+        fulltext_cache = {}
         for doc in handle_url(url):
             docid = self.add_document(doc)
+            reader = get_reader(doc['reader'])
+            for term, fulltext in reader.extract_term_texts(doc['text']):
+                fulltext_cache[term] = fulltext
             if study is not None:
                 self.database.set_tag_on_document(docid, 'study', study)
             if learn:
                 self.learn_document(docid)
+        for term, fulltext in fulltext_cache.items():
+            self.database.set_term_text(term, fulltext)
 
     def __repr__(self):
         return "<LuminosoModel: %r>" % self.dir
@@ -283,7 +296,7 @@ class LuminosoModel(object):
 def _default_config():
     "The default configuration for new studies."
     config = Config()
-    config['num_concepts'] = 50000
+    config['num_concepts'] = 100000
     config['num_axes'] = 100
     config['reader'] = 'simplenlp.en'
     config['iteration'] = 0
