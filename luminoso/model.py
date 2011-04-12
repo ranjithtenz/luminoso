@@ -56,7 +56,7 @@ class LuminosoModel(object):
         self.database = TermDatabase(
           self.filename_in_dir(LuminosoModel.DB_FILENAME)
         )
-        self.associations_cache = {}
+        self.connections_cache = {}
         self.idf_cache = {}
     
     def filename_in_dir(self, filename):
@@ -139,9 +139,9 @@ class LuminosoModel(object):
         text = doc['text']
         tags = doc.get('tags', [])
         doc_terms = []
-        associations = list(reader.extract_connections(text))
-        self.associations_cache[doc['url']] = associations
-        for weight, term1, term2 in associations:
+        connections = list(reader.extract_connections(text))
+        self.connections_cache[doc['url']] = connections
+        for weight, term1, term2 in connections:
             if term1 == DOCUMENT:
                 if isinstance(term2, tuple) and term2[0] == TAG:
                     tags.append(term2[1:])
@@ -157,18 +157,18 @@ class LuminosoModel(object):
         self.idf_cache = {}   # invalidate the cache of term IDFs
         return doc['url']
     
-    def get_document_associations(self, docid):
+    def get_document_connections(self, docid):
         """
-        Given a previously added document, get the list of associations
+        Given a previously added document, get the list of connections
         produced from it.
         """
-        if docid in self.associations_cache:
-            associations = self.associations_cache[docid]
+        if docid in self.connections_cache:
+            connections = self.connections_cache[docid]
         else:
             doc = self.database.get_document(docid)
             reader = get_reader(doc.reader)
-            associations = list(reader.extract_connections(doc.text))
-        return associations
+            connections = list(reader.extract_connections(doc.text))
+        return connections
     
     def get_document_terms(self, docid):
         """
@@ -176,7 +176,7 @@ class LuminosoModel(object):
         that appear in it, as (term, weight) tuples.
         """
         return [(term2, weight) for (weight, term1, term2)
-                in self.get_document_associations(docid)
+                in self.get_document_connections(docid)
                 if term1 == DOCUMENT]
     
     def get_document_tags(self, docid):
@@ -190,9 +190,9 @@ class LuminosoModel(object):
         Given a previously added document, yield triples to use to update the 
         association matrix.
         """
-        LOG.info("Collecting associations from: %r" % docid)
-        associations = self.get_document_associations(docid)
-        for weight, term1, term2 in associations:
+        LOG.info("Collecting connections from: %r" % docid)
+        connections = self.get_document_connections(docid)
+        for weight, term1, term2 in connections:
             if term1 != DOCUMENT:
                 norm_factor = (self.database.count_term(term1)
                                * self.database.count_term(term2)) ** .5
