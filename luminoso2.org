@@ -5,7 +5,7 @@ have various features for keeping track of things like to-do lists. Orgmode is
 available as a plugin for Emacs, Sublime Text 2 (which I use), and possibly
 for vim.
 
-* Short-term TODOs [5/13]
+* Short-term TODOs [5/15]
   - [X] change learning process to group term updates together
   - [X] test PLDB associations
   - [X] compare inputs to documents
@@ -18,6 +18,8 @@ for vim.
   - [ ] centrality stats
   - [ ] correlation stats
   - [X] test Japanese documents
+  - [ ] Demo: new ConnectMe
+  - [ ] Demo: recommend groups or projects from free text
   - [ ] package up relevant stuff on PyPI
 
 * Design plans [0/9]

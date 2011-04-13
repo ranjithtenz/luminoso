@@ -334,7 +334,20 @@ class LuminosoModel(object):
         divisi2.save(dmat, self.filename_in_dir(study_name+'.dmat'))
 
     def get_doc_matrix(self, study_name):
+        """
+        Get the matrix of all documents in a particular study.
+        """
         return divisi2.load(self.filename_in_dir(study_name+'.dmat'))
+
+    def add_default_study(self, study_name='all'):
+        """
+        Ensure that every known document is in a study with the given name
+        (default 'all'). Many methods for working with documents require a
+        study name. This will help with experimenting with those methods
+        on documents that weren't added as part of a study.
+        """
+        for doc in self.database.all_documents():
+            self.database.set_tag_on_document(doc, 'study', study_name)
 
     def update_tag_matrix(self):
         """
@@ -399,6 +412,15 @@ class LuminosoModel(object):
             if term1 == DOCUMENT:
                 terms.append((term2, weight))
         return self.vector_from_terms(terms)
+    
+    def vector_from_input(self):
+        """
+        Get a category vector representing the given line of input from
+        standard in (which is a good way to enter Unicode that iPython can't
+        deal with).
+        """
+        text = raw_input('> ')
+        return self.vector_from_text(text.decode('utf-8'))
 
     def vector_from_document(self, doc_id):
         """
@@ -415,6 +437,27 @@ class LuminosoModel(object):
         to get the most associated terms.
         """
         return divisi2.dot(self.assoc.left, vec)
+    
+    def show_sim(self, similarities, n=10):
+        """
+        Display similar terms or documents in a human-readable form
+        at the command line.
+        """
+        for name, value in similarities.top_items(n):
+            doc = self.database.get_document(name)
+            if doc:
+                printable_name = doc.name
+            else:
+                printable_name = self.database.get_term_text(name)
+            print "%40s  %+4.4f" % (printable_name[:40].encode('utf-8'), value)
+
+    def docs_similar_to_vector(self, vec, study):
+        """
+        Take in a category vector, and returns a weighted vector of
+        associated documents in the study. You can run the `top_items()`
+        method of this vector to get the most associated documents.
+        """
+        return divisi2.dot(self.get_doc_matrix(study).normalize_rows(offset=0.1), vec)
 
     def __repr__(self):
         return "<LuminosoModel: %r>" % self.dir

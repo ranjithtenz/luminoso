@@ -257,7 +257,7 @@ class TermDatabase(object):
     def get_term_text(self, term):
         term_entry = self.sql_session.query(Term).get(term)
         if term_entry:
-            return term_entry.fulltext
+            return term_entry.fulltext or term
         else:
             return term        
 
@@ -442,12 +442,13 @@ class TermDatabase(object):
         """
         return self.count_term_distinct_documents(ANY)
     
-    def list_documents(self):
+    def all_documents(self):
         """
         Get a list of all the document IDs stored in the database.
         """
         return [item[0] for item in
                 self.sql_session.query(Document).values(Document.id)]
+    list_documents = all_documents
     
     #def set_global(self, key, value):
     #    global_entry = self.sql_session.query(GlobalData).get(key)
@@ -476,7 +477,7 @@ class TermDatabase(object):
         """
         Get the IDF value for a given term.
         """
-        idf = math.log(1 + self.count_term_distinct_documents(ANY))\
+        idf = math.log(2 + self.count_term_distinct_documents(ANY))\
             - math.log(1 + self.count_term_distinct_documents(term))
         return idf        
 
