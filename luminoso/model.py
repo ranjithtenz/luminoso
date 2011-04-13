@@ -324,6 +324,8 @@ class LuminosoModel(object):
         """
         Collect the documents in a particular study, and make a dense matrix
         from them representing their positions in this semantic space.
+
+        FIXME: this filename may conflict with other things like 'tags'.
         """
         docs = self.docs_in_study(study_name)
         npmat = np.zeros((len(docs), self.config['num_axes']))
@@ -351,9 +353,32 @@ class LuminosoModel(object):
 
     def update_tag_matrix(self):
         """
-        TODO
+        Collect the tags in a particular study, and make a dense matrix
+        from them representing their average positions in this semantic space.
         """
-        pass
+        all_tags = self.database.all_tags()
+        npmat = np.zeros((len(all_tags), self.config['num_axes']))
+        dmat = divisi2.DenseMatrix(npmat, row_labels=all_tags)
+        for key, value in all_tags:
+            row = dmat.row_index((key, value))
+            ndocs = 0
+            for docid in self.database.documents_with_tag_value(key, value):
+                dmat[row] += self.vector_from_document(docid)
+                ndocs += 1
+            if ndocs > 0:
+                dmat[row] /= ndocs
+        divisi2.save(dmat, self.filename_in_dir('tags.dmat'))
+        self._tag_matrix = dmat
+        return dmat
+    
+    def get_tag_matrix(self):
+        """
+        Get the matrix of all tags in a particular study.
+        """
+        if hasattr(self, '_tag_matrix'):
+            return self._tag_matrix
+        else:
+            return divisi2.load(self.filename_in_dir('tags.dmat'))
 
     def export_svdview(self, study_name, num=10000):
         from divisi2.export_svdview import write_packed
@@ -438,6 +463,39 @@ class LuminosoModel(object):
         """
         return divisi2.dot(self.assoc.left, vec)
     
+    def domain_terms_similar_to_vector(self, vec):
+        """
+        Take in a category vector, and returns a weighted vector of
+        associated terms, but leave out ones that only appear in common
+        sense background knowledge.
+
+        You can run the `top_items()` method of this vector
+        to get the most associated terms.
+        """
+        # FIXME: this way of finding domain concepts is such a hack.
+        mask = np.zeros((len(self.priority),), 'b')
+        for i, item in enumerate(self.priority.items):
+            if (self.priority.priority.has_key(i) and
+                self.priority.priority[i] < 1e6):
+                mask[i] = True
+        return divisi2.multiply(divisi2.dot(self.assoc.left, vec), mask)
+    
+    def docs_similar_to_vector(self, vec, study):
+        """
+        Take in a category vector, and returns a weighted vector of
+        associated documents in the study. You can run the `top_items()`
+        method of this vector to get the most associated documents.
+        """
+        return divisi2.dot(self.get_doc_matrix(study).normalize_rows(offset=0.1), vec)
+
+    def tags_similar_to_vector(self, vec):
+        """
+        Take in a category vector, and returns a weighted vector of
+        associated tags in the study. You can run the `top_items()`
+        method of this vector to get the most associated tags.
+        """
+        return divisi2.dot(self.get_tag_matrix().normalize_rows(offset=0.1), vec)
+    
     def show_sim(self, similarities, n=10):
         """
         Display similar terms or documents in a human-readable form
@@ -450,14 +508,6 @@ class LuminosoModel(object):
             else:
                 printable_name = self.database.get_term_text(name)
             print "%40s  %+4.4f" % (printable_name[:40].encode('utf-8'), value)
-
-    def docs_similar_to_vector(self, vec, study):
-        """
-        Take in a category vector, and returns a weighted vector of
-        associated documents in the study. You can run the `top_items()`
-        method of this vector to get the most associated documents.
-        """
-        return divisi2.dot(self.get_doc_matrix(study).normalize_rows(offset=0.1), vec)
 
     def canonical_stats(self, study, canonicals='Canonical'):
         """

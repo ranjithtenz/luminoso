@@ -499,7 +499,7 @@ class TermDatabase(object):
         tags = set()
         query = self.sql_session.query(Feature).all()
         for tag in query:
-            tags.add(tag.key, tag.value)
+            tags.add((tag.key, json.loads(tag.value)))
         return tags
 
     def documents_with_tag(self, tag):
