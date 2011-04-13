@@ -439,10 +439,10 @@ class LuminosoModel(object):
                           for value, docs in value_to_docs.items())
 
         # Train the classifiers
-        from luminoso.classify import Classifier
+        from luminoso.classify import OneClassClassifier
         classifiers = {}
         for value, vecs in value_vecs.items():
-            classifiers[value] = Classifier(vecs)
+            classifiers[value] = OneClassClassifier(vecs)
         
         # Run them all on the text vector.
         text_vec = self.vector_from_text(text, reader_name)
