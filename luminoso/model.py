@@ -416,6 +416,41 @@ class LuminosoModel(object):
         """
         return divisi2.dot(self.assoc.left, vec)
 
+    ###
+    ### Classifier stuff
+    ###
+    def documents_with_tag_by_value(self, tag):
+        """
+        Get all the documents with a given tag, grouped by tag value.
+        Returns a mapping of value->list of documents.
+        """
+        values = {}
+        for docid, value in self.database.documents_with_tag(tag):
+            values.setdefault(value, []).append(docid)
+        return values
+
+    def predict_tag_value(self, text, tag, reader_name=None):
+        """
+        Predict which values of the given tag go with this text.
+        """
+        value_to_docs = self.documents_with_tag_by_value(tag)
+        value_vecs = dict((value,
+                           [self.vector_from_document(docid) for docid in docs])
+                          for value, docs in value_to_docs.items())
+
+        # Train the classifiers
+        from luminoso.classify import Classifier
+        classifiers = {}
+        for value, vecs in value_vecs.items():
+            classifiers[value] = Classifier(vecs)
+        
+        # Run them all on the text vector.
+        text_vec = self.vector_from_text(text, reader_name)
+        results = {}
+        for value, classifier in classifiers.iteritems():
+            results[value] = classifier.distances([text_vec])[0]
+        return results
+
     def __repr__(self):
         return "<LuminosoModel: %r>" % self.dir
 
