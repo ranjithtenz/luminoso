@@ -327,7 +327,7 @@ class TermDatabase(object):
             self.set_tag_on_document(docid, key, value)
 
         self.sql_session.add_all([Association(docid, term1, term2, weight)
-                              for weight, term1, term2 in associations])
+                              for (term1, term2), weight in associations.iteritems()])
         
         doc = Document(docid, docname, reader_name, text)
         self.sql_session.add(doc)

@@ -143,7 +143,7 @@ class LuminosoModel(object):
         doc_terms = []
         connections = list(reader.extract_connections(text))
         self.connections_cache[doc['url']] = connections
-        associations = []
+        associations = defaultdict(float)
         for weight, term1, term2 in connections:
             if term1 == DOCUMENT:
                 if isinstance(term2, tuple) and term2[0] == TAG:
@@ -153,7 +153,8 @@ class LuminosoModel(object):
                     relevance = self.database.term_relevance(term2)
                     self.index_term(term2, relevance)
             else:
-                associations.append((weight, term1, term2))
+                pair = (term1, term2)
+                associations[pair] += weight
 
         doc['reader'] = reader_name
         doc['terms'] = doc_terms
