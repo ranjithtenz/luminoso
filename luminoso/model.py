@@ -459,6 +459,55 @@ class LuminosoModel(object):
         """
         return divisi2.dot(self.get_doc_matrix(study).normalize_rows(offset=0.1), vec)
 
+    def canonical_stats(self, study, canonicals='Canonical'):
+        """
+        Get the correlation/centrality stats from a study, as compared to
+        the documents in another study designated 'canonical'. That study
+        is probably not a real study, it's just a set of documents like it's
+        always been, but it's represented the same way.
+
+        The default canonical study is in fact the one named 'Canonical'.
+
+        TODO: average the documents as the study is being learned, allowing
+        streaming and very large studies.
+        """
+        stats = {'correlation': {}, 'centrality': {}}
+
+        # calculate the rms concept-concept similarity, as a scale factor
+        mean_concept = np.mean(self.assoc.left_view, axis=0)
+        concept_concept = np.dot(self.assoc.left_view, mean_concept)
+        baseline = np.sqrt(np.mean(concept_concept ** 2))
+
+        # np.asarray it so that we can apply numpy functions to it safely.
+        study_matrix = np.asarray(self.get_doc_matrix(study))
+        canonical_matrix = self.get_doc_matrix(canonicals)
+
+        # First, find the (presumed) normal distribution for how much the
+        # documents in this study are like each other. That distribution
+        # (and particularly its mean) is called "consistency".
+        mean_document = np.mean(np.asarray(study_matrix), axis=0)
+        mean_doc_projections = np.dot(self.assoc.left_view, mean_document)
+
+        stats['consistency'] = _mean_var_stats(mean_doc_projections, baseline)
+
+        # Next, find a similar distribution for how much the documents in
+        # this study are like each canonical document.
+
+        for c_row in xrange(canonical_matrix.shape[0]):
+            canonical_id = canonical_matrix.row_label(c_row)
+            canonical_vec = np.asarray(canonical_matrix[c_row, :])
+            canonical_projections = np.dot(self.assoc.left_view,
+                                           canonical_vec)
+            correlation_stats = _mean_var_stats(canonical_projections,
+                                                baseline)
+            stats['correlation'][canonical_id] = correlation_stats
+
+            centrality = ((correlation_stats['mean'] -
+                           stats['consistency']['mean'])
+                          / correlation_stats['stderr'])
+            stats['centrality'][canonical_id] = centrality
+        return stats
+
     def __repr__(self):
         return "<LuminosoModel: %r>" % self.dir
 
@@ -571,7 +620,13 @@ def _prioritize_labels(mat, num_concepts):
             priority.load_items(item_tuples)
         mat.row_labels = priority
     return mat
-    
+
+def _mean_var_stats(samples, baseline=1):
+    mean = np.mean(samples) / baseline
+    stdev = np.std(samples) / baseline
+    stderr = stdev / np.sqrt(len(samples)-0.999999)
+    return {'mean': mean, 'stdev': stdev, 'stderr': stderr, 'n': len(samples)}
+
 def convert_config(config_dict):
     """
     Convert a dictionary to a Config object.
