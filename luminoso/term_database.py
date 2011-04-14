@@ -246,10 +246,10 @@ class TermDatabase(object):
         """
         query = self.sql_session.query(Feature)\
                   .filter(Feature.document == document)\
-                  .filter(Feature.key == key)
+                  .filter(Feature.key == key)\
+                  .filter(Feature.value == json_encode(value))
         try:
             tag_entry = query.one()
-            tag_entry.value = json_encode(value)
         except NoResultFound:
             tag_entry = Feature(document, key, json_encode(value))
             self.sql_session.add(tag_entry)

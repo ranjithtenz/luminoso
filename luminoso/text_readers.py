@@ -123,7 +123,8 @@ class SimpleNLPReader(TextReader):
         tokens.
         """
         return (token and (token not in self.SPECIAL_TOKENS)
-                      and (token[0] not in self.PUNCT))
+                      and (token[0] not in self.PUNCT)
+                      and not self.nl.is_stopword(token))
     
     def _attenuate(self, memory):
         """

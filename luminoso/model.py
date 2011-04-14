@@ -23,6 +23,11 @@ from collections import defaultdict
 import os
 from config import Config
 import logging
+import codecs
+try:
+    import json
+except ImportError:
+    import simplejson as json
 LOG = logging.getLogger(__name__)
 
 class LuminosoModel(object):
@@ -87,6 +92,17 @@ class LuminosoModel(object):
           self.config,
           self.filename_in_dir(LuminosoModel.CONFIG_FILENAME)
         )
+
+    def save_canonical_stats(self, study='all'):
+        """
+        Given a study named 'foo', this saves its statistics to
+        'foo.stats.json'.
+        """
+        stats = self.canonical_stats(study)
+        out = codecs.open(self.filename_in_dir(study+'.stats.json'), 'w',
+                          encoding='utf-8')
+        json.dump(stats, out, indent=2, ensure_ascii=False)
+        out.close()
 
     def _load_assoc(self):
         "Load the association matrix and priority queue from a file."
@@ -307,20 +323,23 @@ class LuminosoModel(object):
         # Finally, update the full texts of the terms we saw.
         for term, fulltext in fulltext_cache.items():
             self.database.set_term_text(term, fulltext)
+        self.database.commit()
         
         # If this was a study, make a document matrix for it.
         if study is not None:
+            LOG.info("Making document matrix for %r" % study)
             self.update_doc_matrix(study)
+        LOG.info("Updating tag matrix")
         self.update_tag_matrix()
     
-    def docs_in_study(self, study_name):
+    def docs_in_study(self, study_name='all'):
         """
         Get a list of all documents in the given study.
         """
         return list(self.database.documents_with_tag_value(u'study',
                                                            study_name))
 
-    def update_doc_matrix(self, study_name):
+    def update_doc_matrix(self, study_name='all'):
         """
         Collect the documents in a particular study, and make a dense matrix
         from them representing their positions in this semantic space.
@@ -335,7 +354,7 @@ class LuminosoModel(object):
             dmat[row] = self.vector_from_document(docid)
         divisi2.save(dmat, self.filename_in_dir(study_name+'.dmat'))
 
-    def get_doc_matrix(self, study_name):
+    def get_doc_matrix(self, study_name='all'):
         """
         Get the matrix of all documents in a particular study.
         """
@@ -380,7 +399,7 @@ class LuminosoModel(object):
         else:
             return divisi2.load(self.filename_in_dir('tags.dmat'))
 
-    def export_svdview(self, study_name, num=10000):
+    def export_svdview(self, study_name='all', num=10000):
         from divisi2.export_svdview import write_packed
         def denormalize(concept_text):
             doc = self.database.get_document(concept_text)
@@ -480,7 +499,7 @@ class LuminosoModel(object):
                 mask[i] = True
         return divisi2.multiply(divisi2.dot(self.assoc.left, vec), mask)
     
-    def docs_similar_to_vector(self, vec, study):
+    def docs_similar_to_vector(self, vec, study='all'):
         """
         Take in a category vector, and returns a weighted vector of
         associated documents in the study. You can run the `top_items()`
@@ -509,7 +528,7 @@ class LuminosoModel(object):
                 printable_name = self.database.get_term_text(name)
             print "%40s  %+4.4f" % (printable_name[:40].encode('utf-8'), value)
 
-    def canonical_stats(self, study, canonicals='Canonical'):
+    def canonical_stats(self, study='all', canonicals='Canonical'):
         """
         Get the correlation/centrality stats from a study, as compared to
         the documents in another study designated 'canonical'. That study
@@ -570,6 +589,8 @@ class LuminosoModel(object):
         multiplied by its transpose.)
         """
         # Adjust the size of the matrix to match the config, if necessary.
+        if os.access(model_dir, os.F_OK):
+            raise IOError("The model directory %r already exists." % model_dir)
         rows = config['num_concepts']
         cols = config['num_axes']
         if orig_dmat.shape != (rows, cols):
@@ -697,4 +718,48 @@ def save_config_file(config, filename):
     out = open(filename, 'w')
     config.save(out)
     out.close()
+
+def main(argv):
+    """
+    When run as a script, this module will take in a path to a Luminoso1-style
+    study directory, and will save or update the Luminoso2 model in it.
+
+    The directory should contain:
+        `Canonical/` or `canonical.json`: contains canonical documents
+        `Documents/`: contains documents that will be learned from
+    
+    Afterward, it will contain:
+        `Model/`: the luminoso2 model
+
+    If the Model/ directory exists already, it will update the existing model.
+    """
+    dir = argv[1].rstrip('/')
+    lang = argv[2]
+    if lang == 'jp': # easy to confuse ja with JP
+        lang = 'ja'
+    model_dir = dir+'/Model'
+    docs_dir = dir+'/Documents'
+    canonical_url = dir+'/Canonical'
+
+    # test for a new canonical.json
+    if os.access(dir+'/canonical.json', os.R_OK):
+        canonical_url = dir+'/canonical.json'
+
+    try:
+        model = LuminosoModel.make_common_sense(model_dir, lang)
+    except IOError:
+        model = LuminosoModel(model_dir)
+    
+    model.add_from_url(dir+'/Canonical', 'Canonical')
+    model.learn_from_url(dir+'/Documents', 'all')
+    LOG.info("Saving stats to Model/%s.stats.json" % study)
+    model.save_canonical_stats()
+    return model
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) <= 2:
+        print "Usage: model.py <study dir> <language>"
+    else:
+        main(sys.argv)
 
