@@ -46,7 +46,7 @@ setup(
     ext_modules = [],
     packages=find_packages()+['icons'],
     #app=['luminoso/run_luminoso.py'],
-    #scripts=['luminoso/run_luminoso.py', 'luminoso/study.py'],
+    scripts=['luminoso/model.py'],
     #windows=[{'script': 'luminoso/run_luminoso.py'}],
     install_requires=['csc-utils >= 0.5', 'divisi2 >= 2.2.2', 'ipython >= 0.9.1', 'jinja2', 'chardet', 'sqlalchemy', 'config', 'simplenlp'],
     package_data={'simplenlp': ['mblem/*.pickle', 'en/*.txt']},
