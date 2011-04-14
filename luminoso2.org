@@ -23,11 +23,12 @@ for vim.
   - [ ] package up relevant stuff on PyPI
 
 * Design plans [0/9]
-  - [ ] New "LuminosoModel" that can be incrementally trained [3/5]
+  - [ ] New "LuminosoModel" that can be incrementally trained [3/6]
     - [ ] Figure out {{rough incremental blending}}
     - [X] Look into normalization
     - [X] Test basic association
     - [X] Test tags
+    - [ ] Make URLs relative to the model root (not current dir)
     - [ ] Document
 
   - [ ] LuminosoStudies on top of LuminosoModels [0/7]
